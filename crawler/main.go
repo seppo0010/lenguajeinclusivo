@@ -4,20 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 	"sync"
 
-	elasticsearch "github.com/elastic/go-elasticsearch/v7"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
+	"github.com/olivere/elastic"
 	"github.com/streadway/amqp"
 )
 
-var index = "index"
+const index = "index"
+const fichaType = "ficha"
+const actuacionType = "actuacion"
 
 type SearchFormFilter struct {
 	Identificador string `json:"identificador"`
@@ -74,7 +73,7 @@ type Ficha struct {
 }
 
 func (ficha *Ficha) Id() string {
-    return fmt.Sprintf("%d-%d", ficha.Numero, ficha.Anio)
+	return fmt.Sprintf("ficha %d-%d", ficha.Numero, ficha.Anio)
 }
 
 type ActuacionesPage struct {
@@ -102,6 +101,10 @@ type Actuacion struct {
 	PoseeAdjunto           int    `json:"poseeAdjunto"`
 	CUIJ                   string `json:"cuij"`
 	Anio                   int    `json:"anio"`
+}
+
+func (actuacion *Actuacion) Id() string {
+	return fmt.Sprintf("actuacion %d", actuacion.ActId)
 }
 
 type ActuacionWithExpediente struct {
@@ -194,7 +197,7 @@ func searchExpediente(criteria string) (*Expediente, error) {
 
 func getActuacionesPage(expId int, pagenum int) (*ActuacionesPage, error) {
 	log.Printf("getting actuaciones page %d", pagenum)
-	size := 20
+	size := 100
 	res, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones?filtro=%%7B%%22cedulas%%22%%3Atrue%%2C%%22escritos%%22%%3Atrue%%2C%%22despachos%%22%%3Atrue%%2C%%22notas%%22%%3Atrue%%2C%%22expId%%22%%3A%d%%2C%%22accesoMinisterios%%22%%3Afalse%%7D&page=%d&size=%d", expId, pagenum, size))
 	if err != nil {
 		return nil, err
@@ -230,89 +233,45 @@ type LoggerTransport struct {
 
 type LogRequest string
 
-func (t *LoggerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	lr := req.Context().Value(LogRequest("log"))
-	if lr != nil && lr.(bool) == true {
-		requestDump, err := httputil.DumpRequest(req, true)
-		if err == nil {
-			log.Printf("Request: %s", string(requestDump))
-		}
-	}
-
-	return t.transport.RoundTrip(req)
-}
-
 func insertExpediente(exp *Expediente) error {
 	var err error
 	var wg sync.WaitGroup
-	es, err := elasticsearch.NewClient(elasticsearch.Config{
-		Addresses: []string{
-			"http://es:9200",
-		},
-		Transport: &LoggerTransport{transport: http.DefaultTransport},
-	})
+	es, err := elastic.NewClient(elastic.SetURL("http://es:9200"))
 	if err != nil {
 		return err
 	}
 
-    log.Printf("saving ficha")
-    r, w := io.Pipe()
-    enc := json.NewEncoder(w)
-    go func() {
-        defer w.Close()
-        enc.Encode(exp.Ficha)
-    }()
-    res, err := esapi.IndexRequest{
-        Index:      index,
-        DocumentID: exp.Ficha.Id(),
-        Body:       r,
-        Refresh:    "true",
-        Pretty:     true,
-        Human:      true,
-    }.Do(context.WithValue(context.Background(), LogRequest("log"), false), es)
-    if err != nil {
-        return err
-    }
-    defer res.Body.Close()
-
-    if res.IsError() {
-        return fmt.Errorf("%s", res.Status())
-    }
-    log.Printf("finished saving ficha")
+	log.Printf("saving ficha")
+	put, err := es.Index().
+		Index(fichaType).
+		Type(fichaType).
+		Id(exp.Ficha.Id()).
+		BodyJson(exp.Ficha).
+		Do(context.Background())
+	if err != nil {
+		return err
+	}
+	log.Printf("Indexed ficha %s to index %s\n", put.Id, put.Index)
 
 	for i, actuacion := range exp.Actuaciones {
 		wg.Add(1)
 		go func(i int, actuacion Actuacion) {
 			log.Printf("saving actuacion %d", i)
-			defer log.Printf("finished saving actuacion %d", i)
-			defer wg.Done()
-			r, w := io.Pipe()
-			enc := json.NewEncoder(w)
-			go func() {
-				defer w.Close()
-				enc.Encode(ActuacionWithExpediente{
+			put, innerErr := es.Index().
+				Index(actuacionType).
+				Type(actuacionType).
+				Id(actuacion.Id()).
+				BodyJson(ActuacionWithExpediente{
 					Actuacion:          actuacion,
 					NumeroDeExpediente: fmt.Sprintf("%d/%d", exp.Ficha.Numero, exp.Ficha.Anio),
-				})
-			}()
-			res, innerErr := esapi.IndexRequest{
-				Index:      index,
-				DocumentID: fmt.Sprintf("%d", actuacion.ActId),
-				Body:       r,
-				Refresh:    "true",
-				Pretty:     true,
-				Human:      true,
-			}.Do(context.WithValue(context.Background(), LogRequest("log"), false), es)
+				}).
+				Do(context.Background())
+			defer wg.Done()
 			if innerErr != nil {
 				err = innerErr
 				return
 			}
-			defer res.Body.Close()
-
-			if res.IsError() {
-				err = fmt.Errorf("%s", res.Status())
-				return
-			}
+			log.Printf("Indexed actuacion %s to index %s\n", put.Id, put.Index)
 		}(i, actuacion)
 	}
 	wg.Wait()

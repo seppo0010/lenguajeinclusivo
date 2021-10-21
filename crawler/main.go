@@ -55,6 +55,7 @@ type FichaUbicacion struct {
 	Dependencia string `json:"dependencia"`
 }
 type Ficha struct {
+	ExpId            int
 	Radicaciones     FichaRadicaciones    `json:"radicaciones"`
 	Numero           int                  `json:"numero"`
 	Anio             int                  `json:"anio"`
@@ -161,7 +162,7 @@ func getFicha(candidate int) (*Ficha, error) {
 	}
 	defer resp.Body.Close()
 
-	ficha := Ficha{}
+	ficha := Ficha{ExpId: candidate}
 	err = json.NewDecoder(resp.Body).Decode(&ficha)
 	if err != nil {
 		return nil, err
@@ -233,10 +234,36 @@ type LoggerTransport struct {
 
 type LogRequest string
 
+func initTaskQueue(name string) (*amqp.Channel, error) {
+	conn, err := amqp.Dial("amqp://queues/")
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := conn.Channel()
+	if err != nil {
+		return nil, err
+	}
+	err = c.ExchangeDeclare("tasks", "direct", true, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+	_, err = c.QueueDeclare(name, true, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 func insertExpediente(exp *Expediente) error {
 	var err error
 	var wg sync.WaitGroup
 	es, err := elastic.NewClient(elastic.SetURL("http://es:9200"))
+	if err != nil {
+		return err
+	}
+
+	c, err := initTaskQueue("fetch")
 	if err != nil {
 		return err
 	}
@@ -272,6 +299,19 @@ func insertExpediente(exp *Expediente) error {
 				return
 			}
 			log.Printf("Indexed actuacion %s to index %s\n", put.Id, put.Index)
+			err = c.Publish(
+				"tasks",
+				"fetch",
+				false,
+				false,
+				amqp.Publishing{
+					ContentType: "text/plain",
+					Body: []byte(fmt.Sprintf(
+						"https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/pdf?datos=%%7B%%22actId%%22:%d,%%22expId%%22:%d,%%22esNota%%22:false,%%22cedulaId%%22:null,%%22ministerios%%22:false%%7D",
+						actuacion.ActId,
+						exp.Ficha.ExpId,
+					)),
+				})
 		}(i, actuacion)
 	}
 	wg.Wait()
@@ -280,20 +320,7 @@ func insertExpediente(exp *Expediente) error {
 }
 
 func waitForExpediente() (<-chan (string), error) {
-	conn, err := amqp.Dial("amqp://queues/")
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := conn.Channel()
-	if err != nil {
-		return nil, err
-	}
-	err = c.ExchangeDeclare("tasks", "direct", true, false, false, false, nil)
-	if err != nil {
-		return nil, err
-	}
-	_, err = c.QueueDeclare("crawl", true, false, false, false, nil)
+	c, err := initTaskQueue("crawl")
 	if err != nil {
 		return nil, err
 	}

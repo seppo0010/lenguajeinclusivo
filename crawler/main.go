@@ -17,6 +17,7 @@ import (
 	"github.com/streadway/amqp"
 )
 
+var fichaType = "ficha"
 var actuacionType = "actuación"
 
 type SearchFormFilter struct {
@@ -174,6 +175,7 @@ func searchExpediente(criteria string) (*Expediente, error) {
 			return nil, err
 		}
 		if strings.HasPrefix(criteria, fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio)) {
+			log.Printf("expediente found!")
 			actuaciones, err := getActuaciones(candidate)
 			if err != nil {
 				return nil, err
@@ -188,6 +190,7 @@ func searchExpediente(criteria string) (*Expediente, error) {
 }
 
 func getActuacionesPage(expId int, pagenum int) (*ActuacionesPage, error) {
+	log.Printf("getting actuaciones page %d", pagenum)
 	size := 20
 	res, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones?filtro=%%7B%%22cedulas%%22%%3Atrue%%2C%%22escritos%%22%%3Atrue%%2C%%22despachos%%22%%3Atrue%%2C%%22notas%%22%%3Atrue%%2C%%22expId%%22%%3A%d%%2C%%22accesoMinisterios%%22%%3Afalse%%7D&page=%d&size=%d", expId, pagenum, size))
 	if err != nil {
@@ -248,9 +251,43 @@ func insertExpediente(exp *Expediente) error {
 	if err != nil {
 		return err
 	}
-	for _, actuacion := range exp.Actuaciones {
+
+	wg.Add(1)
+	go func(ficha *Ficha) {
+		log.Printf("saving ficha")
+		defer log.Printf("finished saving ficha")
+		defer wg.Done()
+		r, w := io.Pipe()
+		enc := json.NewEncoder(w)
+		go func() {
+			defer w.Close()
+			enc.Encode(ficha)
+		}()
+		res, innerErr := esapi.IndexRequest{
+			Index:      fichaType,
+			DocumentID: fmt.Sprintf("%d-%d", ficha.Numero, ficha.Anio),
+			Body:       r,
+			Refresh:    "true",
+			Pretty:     true,
+			Human:      true,
+		}.Do(context.WithValue(context.Background(), LogRequest("log"), false), es)
+		if innerErr != nil {
+			err = innerErr
+			return
+		}
+		defer res.Body.Close()
+
+		if res.IsError() {
+			err = fmt.Errorf("%s", res.Status())
+			return
+		}
+	}(exp.Ficha)
+
+	for i, actuacion := range exp.Actuaciones {
 		wg.Add(1)
-		go func(actuacion Actuacion) {
+		go func(i int, actuacion Actuacion) {
+			log.Printf("saving actuacion %d", i)
+			defer log.Printf("finished saving actuacion %d", i)
 			defer wg.Done()
 			r, w := io.Pipe()
 			enc := json.NewEncoder(w)
@@ -279,7 +316,7 @@ func insertExpediente(exp *Expediente) error {
 				err = fmt.Errorf("%s", res.Status())
 				return
 			}
-		}(actuacion)
+		}(i, actuacion)
 	}
 	wg.Wait()
 
@@ -334,7 +371,9 @@ func main() {
 		log.Fatalf("%s\n", err)
 		return
 	}
+	log.Print("waiting for expedientes")
 	for numexpediente := range expedientes {
+		log.Printf("received expediente %s", numexpediente)
 		exp, err := searchExpediente(numexpediente)
 		if err != nil {
 			log.Fatalf("%s\n", err)
@@ -345,5 +384,6 @@ func main() {
 			log.Fatalf("%s\n", err)
 			return
 		}
+		log.Printf("finished with expediente %s", numexpediente)
 	}
 }

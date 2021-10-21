@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type SearchFormFilter struct {
@@ -107,21 +108,22 @@ func getFicha(candidate int) (*Ficha, error) {
 	return &ficha, nil
 }
 
-func searchExpediente(criteria string) (interface{}, error) {
+func searchExpediente(criteria string) (*Ficha, error) {
 	candidates, err := getExpedienteCandidates(criteria)
 	if err != nil {
 		return nil, err
 	}
 
-	fichas := make([]Ficha, len(candidates))
-	for i, candidate := range candidates {
+	for _, candidate := range candidates {
 		ficha, err := getFicha(candidate)
 		if err != nil {
 			return nil, err
 		}
-		fichas[i] = *ficha
+		if strings.HasPrefix(criteria, fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio)) {
+			return ficha, nil
+		}
 	}
-	return fichas, nil
+	return nil, fmt.Errorf("cannot find ficha for criteria: %s", criteria)
 }
 
 func main() {

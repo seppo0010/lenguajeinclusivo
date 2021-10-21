@@ -1,12 +1,22 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync"
+
+	elasticsearch "github.com/elastic/go-elasticsearch/v7"
+	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
+
+var actuacionType = "actuación"
 
 type SearchFormFilter struct {
 	Identificador string `json:"identificador"`
@@ -87,6 +97,11 @@ type Actuacion struct {
 	PoseeAdjunto           int    `json:"poseeAdjunto"`
 	CUIJ                   string `json:"cuij"`
 	Anio                   int    `json:"anio"`
+}
+
+type ActuacionWithExpediente struct {
+	Actuacion
+	NumeroDeExpediente string
 }
 
 type ActuacionesPagePageable struct {
@@ -190,7 +205,6 @@ func getActuaciones(expId int) ([]Actuacion, error) {
 	pagenum := 0
 	for {
 		page, err := getActuacionesPage(expId, pagenum)
-
 		if err != nil {
 			return nil, err
 		}
@@ -203,10 +217,80 @@ func getActuaciones(expId int) ([]Actuacion, error) {
 	return actuaciones, nil
 }
 
-func main() {
-	res, err := searchExpediente("182908/2020-0")
-	if err != nil {
-		fmt.Println(err)
+type LoggerTransport struct {
+	transport http.RoundTripper
+}
+
+type LogRequest string
+
+func (t *LoggerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	lr := req.Context().Value(LogRequest("log"))
+	if lr != nil && lr.(bool) == true {
+		requestDump, err := httputil.DumpRequest(req, true)
+		if err == nil {
+			log.Printf("Request: %s", string(requestDump))
+		}
 	}
-	fmt.Printf("%+v \n", res)
+
+	return t.transport.RoundTrip(req)
+}
+
+func insertExpediente(exp *Expediente) error {
+	var err error
+	var wg sync.WaitGroup
+	es, err := elasticsearch.NewClient(elasticsearch.Config{Transport: &LoggerTransport{transport: http.DefaultTransport}})
+	if err != nil {
+		return err
+	}
+	for _, actuacion := range exp.Actuaciones {
+		wg.Add(1)
+		go func(actuacion Actuacion) {
+			defer wg.Done()
+			r, w := io.Pipe()
+			enc := json.NewEncoder(w)
+			go func() {
+				defer w.Close()
+				enc.Encode(ActuacionWithExpediente{
+					Actuacion:          actuacion,
+					NumeroDeExpediente: fmt.Sprintf("%d/%d", exp.Ficha.Numero, exp.Ficha.Anio),
+				})
+
+			}()
+			res, innerErr := esapi.IndexRequest{
+				Index:      actuacionType,
+				DocumentID: fmt.Sprintf("%d", actuacion.ActId),
+				Body:       r,
+				Refresh:    "true",
+				Pretty:     true,
+				Human:      true,
+				// }.Do(context.Background(), es)
+			}.Do(context.WithValue(context.Background(), LogRequest("log"), false), es)
+			if innerErr != nil {
+				err = innerErr
+				return
+			}
+			defer res.Body.Close()
+
+			if res.IsError() {
+				err = fmt.Errorf("%s", res.Status())
+				return
+			}
+		}(actuacion)
+	}
+	wg.Wait()
+
+	return err
+}
+
+func main() {
+	exp, err := searchExpediente("182908/2020-0")
+	if err != nil {
+		log.Printf("%s\n", err)
+		return
+	}
+	err = insertExpediente(exp)
+	if err != nil {
+		log.Printf("%s\n", err)
+		return
+	}
 }

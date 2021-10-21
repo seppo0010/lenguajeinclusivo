@@ -17,8 +17,7 @@ import (
 	"github.com/streadway/amqp"
 )
 
-var fichaType = "ficha"
-var actuacionType = "actuación"
+var index = "index"
 
 type SearchFormFilter struct {
 	Identificador string `json:"identificador"`
@@ -72,6 +71,10 @@ type Ficha struct {
 	Caratula         string               `json:"caratula"`
 	Monto            float64              `json:"monto"`
 	Etiquetas        string               `json:"etiquetas"`
+}
+
+func (ficha *Ficha) Id() string {
+    return fmt.Sprintf("%d-%d", ficha.Numero, ficha.Anio)
 }
 
 type ActuacionesPage struct {
@@ -252,36 +255,30 @@ func insertExpediente(exp *Expediente) error {
 		return err
 	}
 
-	wg.Add(1)
-	go func(ficha *Ficha) {
-		log.Printf("saving ficha")
-		defer log.Printf("finished saving ficha")
-		defer wg.Done()
-		r, w := io.Pipe()
-		enc := json.NewEncoder(w)
-		go func() {
-			defer w.Close()
-			enc.Encode(ficha)
-		}()
-		res, innerErr := esapi.IndexRequest{
-			Index:      fichaType,
-			DocumentID: fmt.Sprintf("%d-%d", ficha.Numero, ficha.Anio),
-			Body:       r,
-			Refresh:    "true",
-			Pretty:     true,
-			Human:      true,
-		}.Do(context.WithValue(context.Background(), LogRequest("log"), false), es)
-		if innerErr != nil {
-			err = innerErr
-			return
-		}
-		defer res.Body.Close()
+    log.Printf("saving ficha")
+    r, w := io.Pipe()
+    enc := json.NewEncoder(w)
+    go func() {
+        defer w.Close()
+        enc.Encode(exp.Ficha)
+    }()
+    res, err := esapi.IndexRequest{
+        Index:      index,
+        DocumentID: exp.Ficha.Id(),
+        Body:       r,
+        Refresh:    "true",
+        Pretty:     true,
+        Human:      true,
+    }.Do(context.WithValue(context.Background(), LogRequest("log"), false), es)
+    if err != nil {
+        return err
+    }
+    defer res.Body.Close()
 
-		if res.IsError() {
-			err = fmt.Errorf("%s", res.Status())
-			return
-		}
-	}(exp.Ficha)
+    if res.IsError() {
+        return fmt.Errorf("%s", res.Status())
+    }
+    log.Printf("finished saving ficha")
 
 	for i, actuacion := range exp.Actuaciones {
 		wg.Add(1)
@@ -299,7 +296,7 @@ func insertExpediente(exp *Expediente) error {
 				})
 			}()
 			res, innerErr := esapi.IndexRequest{
-				Index:      actuacionType,
+				Index:      index,
 				DocumentID: fmt.Sprintf("%d", actuacion.ActId),
 				Body:       r,
 				Refresh:    "true",

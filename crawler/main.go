@@ -14,6 +14,7 @@ import (
 
 	elasticsearch "github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
+	"github.com/streadway/amqp"
 )
 
 var actuacionType = "actuación"
@@ -287,15 +288,64 @@ func insertExpediente(exp *Expediente) error {
 	return err
 }
 
-func main() {
-	exp, err := searchExpediente("182908/2020-0")
+func waitForExpediente() (<-chan (string), error) {
+	conn, err := amqp.Dial("amqp://queues/")
 	if err != nil {
-		log.Printf("%s\n", err)
+		return nil, err
+	}
+
+	c, err := conn.Channel()
+	if err != nil {
+		return nil, err
+	}
+	err = c.ExchangeDeclare("tasks", "direct", true, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+	_, err = c.QueueDeclare("crawl", true, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.QueueBind("crawl", "crawl", "tasks", false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.Qos(1, 0, false)
+	if err != nil {
+		return nil, err
+	}
+	tasks, err := c.Consume("crawl", "crawler", false, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+	ch := make(chan string)
+	go func(tasks <-chan amqp.Delivery) {
+		for task := range tasks {
+			ch <- string(task.Body)
+			task.Ack(false)
+		}
+	}(tasks)
+	return ch, nil
+}
+
+func main() {
+	expedientes, err := waitForExpediente()
+	if err != nil {
+		log.Fatalf("%s\n", err)
 		return
 	}
-	err = insertExpediente(exp)
-	if err != nil {
-		log.Printf("%s\n", err)
-		return
+	for numexpediente := range expedientes {
+		exp, err := searchExpediente(numexpediente)
+		if err != nil {
+			log.Fatalf("%s\n", err)
+			return
+		}
+		err = insertExpediente(exp)
+		if err != nil {
+			log.Fatalf("%s\n", err)
+			return
+		}
 	}
 }

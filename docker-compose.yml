@@ -15,17 +15,30 @@ services:
       - esdata:/usr/share/elasticsearch/data
     networks:
       - crawler-database
+  queues:
+    image: rabbitmq:3-management
+    restart: on-failure
+    environment:
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbit log_levels [{connection,error}]
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    networks:
+      - crawler-queue
   crawler:
     build:
       context: ./crawler
     restart: on-failure
     networks:
       - crawler-database
+      - crawler-queue
     depends_on:
+      - "queues"
       - "es"
 
 networks:
   crawler-database:
+  crawler-queue:
 
 volumes:
   esdata:
+  rabbitmqdata:

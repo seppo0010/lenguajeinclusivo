@@ -25,7 +25,43 @@ type SearchResult struct {
 	Content []SearchResultContent `json:"content"`
 }
 
-func searchExpediente(criteria string) (interface{}, error) {
+type FichaRadicaciones struct {
+	SecretariaPrimeraInstancia string `json:"secretariaPrimeraInstancia"`
+	OrganismoSegundaInstancia  string `json:"organismoSegundaInstancia"`
+	SecretariaSegundaInstancia string `json:"secretariaSegundaInstancia"`
+	OrganismoPrimeraInstancia  string `json:"organismoPrimeraInstancia"`
+}
+
+type FichaObjetosJuicio struct {
+	ObjetoJuicio string `json:"objetoJuicio"`
+	Categoria    string `json:"categoria"`
+	EsPrincipal  int    `json:"esPrincipal"`
+	Materia      string `json:"materia"`
+}
+
+type FichaUbicacion struct {
+	Organismo   string `json:"organismo"`
+	Dependencia string `json:"dependencia"`
+}
+type Ficha struct {
+	Radicaciones     FichaRadicaciones    `json:"radicaciones"`
+	Numero           int                  `json:"numero"`
+	Anio             int                  `json:"anio"`
+	Sufijo           int                  `json:"sufijo"`
+	ObjetosJuicio    []FichaObjetosJuicio `json:"objetosJuicio"`
+	Ubicacion        FichaUbicacion       `json:"ubicacion"`
+	FechaInicio      int                  `json:"fechaInicio"`
+	UltimoMovimiento int                  `json:"ultimoMovimiento"`
+	TieneSentencia   int                  `json:"tieneSentencia"`
+	EsPrivado        int                  `json:"esPrivado"`
+	TipoExpediente   string               `json:"tipoExpediente"`
+	CUIJ             string               `json:"cuij"`
+	Caratula         string               `json:"caratula"`
+	Monto            float64              `json:"monto"`
+	Etiquetas        string               `json:"etiquetas"`
+}
+
+func getExpedienteCandidates(criteria string) ([]int, error) {
 	filter, _ := json.Marshal(SearchFormFilter{
 		Identificador: criteria,
 	})
@@ -49,7 +85,43 @@ func searchExpediente(criteria string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return sr, nil
+	res := make([]int, len(sr.Content))
+	for i, s := range sr.Content {
+		res[i] = s.ExpId
+	}
+	return res, nil
+}
+
+func getFicha(candidate int) (*Ficha, error) {
+	resp, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/ficha?expId=%d", candidate))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	ficha := Ficha{}
+	err = json.NewDecoder(resp.Body).Decode(&ficha)
+	if err != nil {
+		return nil, err
+	}
+	return &ficha, nil
+}
+
+func searchExpediente(criteria string) (interface{}, error) {
+	candidates, err := getExpedienteCandidates(criteria)
+	if err != nil {
+		return nil, err
+	}
+
+	fichas := make([]Ficha, len(candidates))
+	for i, candidate := range candidates {
+		ficha, err := getFicha(candidate)
+		if err != nil {
+			return nil, err
+		}
+		fichas[i] = *ficha
+	}
+	return fichas, nil
 }
 
 func main() {

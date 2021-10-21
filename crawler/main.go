@@ -62,6 +62,44 @@ type Ficha struct {
 	Etiquetas        string               `json:"etiquetas"`
 }
 
+type ActuacionesPage struct {
+	TotalPages       int                     `json:"totalPages"`
+	TotalElements    int                     `json:"totalElements"`
+	NumberOfElements int                     `json:"numberOfElements"`
+	Last             bool                    `json:"last"`
+	First            bool                    `json:"first"`
+	Size             int                     `json:"size"`
+	Number           int                     `json:"number"`
+	Pageable         ActuacionesPagePageable `json:"pageable"`
+	Content          []Actuacion             `json:"content"`
+}
+
+type Actuacion struct {
+	EsCedula               int    `json:"esCedula"`
+	Codigo                 string `json:"codigo"`
+	ActuacionesNotificadas string `json:"actuacionesNotificadas"`
+	Numero                 int    `json:"numero"`
+	FechaFirma             int    `json:"fechaFirma"`
+	Firmantes              string `json:"firmantes"`
+	ActId                  int    `json:"actId"`
+	Titulo                 string `json:"titulo"`
+	FechaNotificacion      int    `json:"fechaNotificacion"`
+	PoseeAdjunto           int    `json:"poseeAdjunto"`
+	CUIJ                   string `json:"cuij"`
+	Anio                   int    `json:"anio"`
+}
+
+type ActuacionesPagePageable struct {
+	PageNumber int `json:"pageNumber"`
+	PageSize   int `json:"pageSize"`
+	Offset     int `json:"offset"`
+}
+
+type Expediente struct {
+	*Ficha
+	Actuaciones []Actuacion
+}
+
 func getExpedienteCandidates(criteria string) ([]int, error) {
 	filter, _ := json.Marshal(SearchFormFilter{
 		Identificador: criteria,
@@ -108,7 +146,7 @@ func getFicha(candidate int) (*Ficha, error) {
 	return &ficha, nil
 }
 
-func searchExpediente(criteria string) (*Ficha, error) {
+func searchExpediente(criteria string) (*Expediente, error) {
 	candidates, err := getExpedienteCandidates(criteria)
 	if err != nil {
 		return nil, err
@@ -120,10 +158,49 @@ func searchExpediente(criteria string) (*Ficha, error) {
 			return nil, err
 		}
 		if strings.HasPrefix(criteria, fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio)) {
-			return ficha, nil
+			actuaciones, err := getActuaciones(candidate)
+			if err != nil {
+				return nil, err
+			}
+			return &Expediente{
+				Ficha:       ficha,
+				Actuaciones: actuaciones,
+			}, nil
 		}
 	}
 	return nil, fmt.Errorf("cannot find ficha for criteria: %s", criteria)
+}
+
+func getActuacionesPage(expId int, pagenum int) (*ActuacionesPage, error) {
+	size := 20
+	res, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones?filtro=%%7B%%22cedulas%%22%%3Atrue%%2C%%22escritos%%22%%3Atrue%%2C%%22despachos%%22%%3Atrue%%2C%%22notas%%22%%3Atrue%%2C%%22expId%%22%%3A%d%%2C%%22accesoMinisterios%%22%%3Afalse%%7D&page=%d&size=%d", expId, pagenum, size))
+	if err != nil {
+		return nil, err
+	}
+	page := ActuacionesPage{}
+	err = json.NewDecoder(res.Body).Decode(&page)
+	if err != nil {
+		return nil, err
+	}
+	return &page, nil
+}
+
+func getActuaciones(expId int) ([]Actuacion, error) {
+	actuaciones := make([]Actuacion, 0, 1)
+	pagenum := 0
+	for {
+		page, err := getActuacionesPage(expId, pagenum)
+
+		if err != nil {
+			return nil, err
+		}
+		if len(page.Content) == 0 {
+			break
+		}
+		actuaciones = append(actuaciones, page.Content...)
+		pagenum++
+	}
+	return actuaciones, nil
 }
 
 func main() {

@@ -260,7 +260,6 @@ func insertExpediente(exp *Expediente) error {
 					Actuacion:          actuacion,
 					NumeroDeExpediente: fmt.Sprintf("%d/%d", exp.Ficha.Numero, exp.Ficha.Anio),
 				})
-
 			}()
 			res, innerErr := esapi.IndexRequest{
 				Index:      actuacionType,
@@ -269,7 +268,6 @@ func insertExpediente(exp *Expediente) error {
 				Refresh:    "true",
 				Pretty:     true,
 				Human:      true,
-				// }.Do(context.Background(), es)
 			}.Do(context.WithValue(context.Background(), LogRequest("log"), false), es)
 			if innerErr != nil {
 				err = innerErr

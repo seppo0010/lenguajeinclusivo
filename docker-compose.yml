@@ -1,0 +1,31 @@
+version: '2.2'
+services:
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.1
+    restart: on-failure
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - crawler-database
+  crawler:
+    build:
+      context: ./crawler
+    restart: on-failure
+    networks:
+      - crawler-database
+    depends_on:
+      - "es"
+
+networks:
+  crawler-database:
+
+volumes:
+  esdata:

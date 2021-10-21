@@ -238,7 +238,12 @@ func (t *LoggerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func insertExpediente(exp *Expediente) error {
 	var err error
 	var wg sync.WaitGroup
-	es, err := elasticsearch.NewClient(elasticsearch.Config{Transport: &LoggerTransport{transport: http.DefaultTransport}})
+	es, err := elasticsearch.NewClient(elasticsearch.Config{
+		Addresses: []string{
+			"http://es:9200",
+		},
+		Transport: &LoggerTransport{transport: http.DefaultTransport},
+	})
 	if err != nil {
 		return err
 	}

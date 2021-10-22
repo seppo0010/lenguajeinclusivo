@@ -253,6 +253,11 @@ func initTaskQueue(name string) (*amqp.Channel, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = c.QueueBind(name, name, "tasks", false, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -324,11 +329,6 @@ func insertExpediente(exp *Expediente) error {
 
 func waitForExpediente() (<-chan (string), error) {
 	c, err := initTaskQueue("crawl")
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.QueueBind("crawl", "crawl", "tasks", false, nil)
 	if err != nil {
 		return nil, err
 	}

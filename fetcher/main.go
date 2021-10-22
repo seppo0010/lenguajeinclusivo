@@ -57,7 +57,7 @@ func saveURLToBucket(url string, minioClient *minio.Client, bucketName string) e
 	return nil
 }
 
-func waitForURLs() (<-chan (string), error) {
+func initTaskQueue(name string) (*amqp.Channel, error) {
 	conn, err := amqp.Dial("amqp://queues/")
 	if err != nil {
 		return nil, err
@@ -71,12 +71,41 @@ func waitForURLs() (<-chan (string), error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = c.QueueDeclare("fetch", true, false, false, false, nil)
+	_, err = c.QueueDeclare(name, true, false, false, false, nil)
 	if err != nil {
 		return nil, err
 	}
+	err = c.QueueBind(name, name, "tasks", false, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
 
-	err = c.QueueBind("fetch", "fetch", "tasks", false, nil)
+func enqueueIndex(url string) error {
+	c, err := initTaskQueue("index")
+	if err != nil {
+		return err
+	}
+
+	log.Printf("enqueuing %s for indexing", url)
+	err = c.Publish(
+		"tasks",
+		"index",
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(url),
+		})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func waitForURLs() (<-chan (string), error) {
+	c, err := initTaskQueue("fetch")
 	if err != nil {
 		return nil, err
 	}
@@ -121,15 +150,18 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-    log.Printf("waiting for urls")
+	log.Printf("waiting for urls")
 	for url := range urls {
 		log.Printf("received url: %s", url)
 		exists := urlIsSaved(url, minioClient, bucketName)
-		if exists {
-			log.Printf("url %s already exists", url)
-			continue
+		if !exists {
+			err = saveURLToBucket(url, minioClient, bucketName)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 		}
-		err = saveURLToBucket(url, minioClient, bucketName)
+		err = enqueueIndex(url)
 		if err != nil {
 			log.Println(err)
 		}

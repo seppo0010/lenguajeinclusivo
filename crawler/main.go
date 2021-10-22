@@ -12,6 +12,7 @@ import (
 	"github.com/olivere/elastic"
 	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"github.com/seppo0010/juscaba/shared"
 )
 
 const index = "index"
@@ -250,52 +251,6 @@ func getActuaciones(expId int) ([]Actuacion, error) {
 	return actuaciones, nil
 }
 
-type LoggerTransport struct {
-	transport http.RoundTripper
-}
-
-type LogRequest string
-
-func initTaskQueue(name string) (*amqp.Channel, error) {
-	conn, err := amqp.Dial("amqp://queues/")
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to connect to amqp")
-		return nil, err
-	}
-
-	c, err := conn.Channel()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to create channel")
-		return nil, err
-	}
-	err = c.ExchangeDeclare("tasks", "direct", true, false, false, false, nil)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to declare exchange")
-		return nil, err
-	}
-	_, err = c.QueueDeclare(name, true, false, false, false, nil)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to declare queue")
-		return nil, err
-	}
-	err = c.QueueBind(name, name, "tasks", false, nil)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to bind queue")
-		return nil, err
-	}
-	return c, nil
-}
-
 func insertExpediente(exp *Expediente) error {
 	var err error
 	var wg sync.WaitGroup
@@ -307,7 +262,7 @@ func insertExpediente(exp *Expediente) error {
 		return err
 	}
 
-	c, err := initTaskQueue("fetch")
+	c, err := shared.InitTaskQueue("fetch")
 	if err != nil {
 		return err
 	}
@@ -380,7 +335,7 @@ func insertExpediente(exp *Expediente) error {
 }
 
 func waitForExpediente() (<-chan (string), error) {
-	c, err := initTaskQueue("crawl")
+	c, err := shared.InitTaskQueue("crawl")
 	if err != nil {
 		return nil, err
 	}

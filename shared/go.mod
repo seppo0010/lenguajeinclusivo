@@ -1,12 +1,9 @@
-module github.com/seppo0010/juscaba/fetcher
+module github.com/seppo0010/juscaba/shared
 
 go 1.17
 
-replace github.com/seppo0010/juscaba/shared => ../shared
-
 require (
 	github.com/minio/minio-go/v7 v7.0.15
-	github.com/seppo0010/juscaba/shared v0.0.0-00010101000000-000000000000
 	github.com/sirupsen/logrus v1.8.1
 	github.com/streadway/amqp v1.0.0
 )

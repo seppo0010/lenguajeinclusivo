@@ -5,12 +5,10 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/seppo0010/juscaba/shared"
 	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 )
@@ -60,48 +58,8 @@ func saveURLToBucket(url string, minioClient *minio.Client, bucketName string) e
 	return nil
 }
 
-func initTaskQueue(name string) (*amqp.Channel, error) {
-	conn, err := amqp.Dial("amqp://queues/")
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to connect to amqp")
-		return nil, err
-	}
-
-	c, err := conn.Channel()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to create channel")
-		return nil, err
-	}
-	err = c.ExchangeDeclare("tasks", "direct", true, false, false, false, nil)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to declare exchange")
-		return nil, err
-	}
-	_, err = c.QueueDeclare(name, true, false, false, false, nil)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to declare queue")
-		return nil, err
-	}
-	err = c.QueueBind(name, name, "tasks", false, nil)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to bind queue")
-		return nil, err
-	}
-	return c, nil
-}
-
 func enqueueIndex(url string) error {
-	c, err := initTaskQueue("index")
+	c, err := shared.InitTaskQueue("index")
 	if err != nil {
 		return err
 	}
@@ -128,7 +86,7 @@ func enqueueIndex(url string) error {
 }
 
 func waitForURLs() (<-chan (string), error) {
-	c, err := initTaskQueue("fetch")
+	c, err := shared.InitTaskQueue("fetch")
 	if err != nil {
 		return nil, err
 	}
@@ -157,53 +115,9 @@ func waitForURLs() (<-chan (string), error) {
 	return ch, nil
 }
 
-func readSecret(name string) (string, error) {
-	body, err := ioutil.ReadFile(fmt.Sprintf("/run/secrets/%v", name))
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-			"name":  name,
-		}).Fatal("failed to read secret")
-	}
-	return strings.TrimSpace(string(body)), nil
-}
-
-func getMinioClient(bucketName string) (*minio.Client, error) {
-	useSSL := false
-	accessKeyID, err := readSecret("minio-user")
-	if err != nil {
-		return nil, err
-	}
-	secretAccessKey, err := readSecret("minio-password")
-	if err != nil {
-		return nil, err
-	}
-	minioClient, err := minio.New("minio:9000", &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: useSSL,
-	})
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Fatal("failed to connect to minio")
-		return nil, err
-	}
-	found, err := minioClient.BucketExists(context.Background(), bucketName)
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		err = minioClient.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{Region: "us-east-1"})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return minioClient, nil
-}
-
 func main() {
 	bucketName := "pdfs"
-	minioClient, err := getMinioClient(bucketName)
+	minioClient, err := shared.GetMinioClient(bucketName)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),

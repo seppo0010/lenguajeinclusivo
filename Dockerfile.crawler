@@ -2,10 +2,11 @@ FROM golang:1.17
 
 WORKDIR /go/src/app
 
-COPY go.mod go.sum ./
+COPY crawler/go.mod crawler/go.sum ./
+COPY ./shared /go/src/shared
 RUN go mod download
 
-COPY . .
+COPY ./crawler .
 
 RUN go get -d -v ./...
 RUN go install -v ./...

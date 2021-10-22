@@ -27,7 +27,8 @@ services:
       - fetcher-queue
   crawler:
     build:
-      context: ./crawler
+      context: .
+      dockerfile: Dockerfile.crawler
     restart: on-failure
     networks:
       - crawler-database
@@ -37,7 +38,8 @@ services:
       - "es"
   fetcher:
     build:
-      context: ./fetcher
+      context: .
+      dockerfile: Dockerfile.fetcher
     restart: on-failure
     networks:
       - fetcher-queue

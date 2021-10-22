@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha1"
-	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/minio/minio-go/v7"
@@ -13,14 +10,8 @@ import (
 	"github.com/streadway/amqp"
 )
 
-func getSha1(s string) string {
-	h := sha1.New()
-	io.WriteString(h, s)
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
 func urlIsSaved(url string, minioClient *minio.Client, bucketName string) bool {
-	_, err := minioClient.StatObject(context.Background(), bucketName, getSha1(url), minio.StatObjectOptions{})
+	_, err := minioClient.StatObject(context.Background(), bucketName, shared.GetSha1(url), minio.StatObjectOptions{})
 	return err == nil
 }
 
@@ -35,7 +26,7 @@ func saveURLToBucket(url string, minioClient *minio.Client, bucketName string) e
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK {
-		uploadInfo, err := minioClient.PutObject(context.Background(), bucketName, getSha1(url), res.Body, -1, minio.PutObjectOptions{ContentType: res.Header.Get("content-type")})
+		uploadInfo, err := minioClient.PutObject(context.Background(), bucketName, shared.GetSha1(url), res.Body, -1, minio.PutObjectOptions{ContentType: res.Header.Get("content-type")})
 		if err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),
@@ -85,36 +76,6 @@ func enqueueIndex(url string) error {
 	return nil
 }
 
-func waitForURLs() (<-chan (string), error) {
-	c, err := shared.InitTaskQueue("fetch")
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.Qos(1, 0, false)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to set qos")
-		return nil, err
-	}
-	tasks, err := c.Consume("fetch", "fetcher", false, false, false, false, nil)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to create consumer")
-		return nil, err
-	}
-	ch := make(chan string)
-	go func(tasks <-chan amqp.Delivery) {
-		for task := range tasks {
-			ch <- string(task.Body)
-			task.Ack(false)
-		}
-	}(tasks)
-	return ch, nil
-}
-
 func main() {
 	bucketName := "pdfs"
 	minioClient, err := shared.GetMinioClient(bucketName)
@@ -123,12 +84,13 @@ func main() {
 			"error": err.Error(),
 		}).Fatal("Connect to minio")
 	}
-	urls, err := waitForURLs()
+	urls, err := shared.WaitForTasks("fetch", "fetcher")
 	if err != nil {
 		log.Fatalln(err)
 	}
 	log.Info("waiting for urls")
-	for url := range urls {
+	for urlBytes := range urls {
+		url := string(urlBytes)
 		log.WithFields(log.Fields{
 			"url": url,
 		}).Info("Received")

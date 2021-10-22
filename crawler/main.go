@@ -10,14 +10,46 @@ import (
 	"sync"
 
 	"github.com/olivere/elastic"
+	"github.com/seppo0010/juscaba/shared"
 	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
-	"github.com/seppo0010/juscaba/shared"
 )
 
-const index = "index"
 const fichaType = "ficha"
 const actuacionType = "actuacion"
+
+const actuacionMapping = `
+{
+	"settings":{
+		"number_of_shards": 1,
+		"number_of_replicas": 0
+	},
+	"mappings":{
+		"properties":{
+			"codigo":{
+				"type":"keyword"
+			},
+			"actuacionesNotificadas":{
+				"type":"keyword"
+			},
+			"firmantes":{
+				"type":"keyword"
+			},
+			"titulo":{
+				"type":"keyword"
+			},
+			"cuij":{
+				"type":"keyword"
+			},
+			"numeroDeExpediente":{
+				"type":"keyword"
+			},
+			"URL":{
+				"type":"keyword"
+			}
+		}
+	}
+}`
 
 type SearchFormFilter struct {
 	Identificador string `json:"identificador"`
@@ -111,7 +143,7 @@ func (actuacion *Actuacion) Id() string {
 
 type ActuacionWithExpediente struct {
 	Actuacion
-	NumeroDeExpediente string
+	NumeroDeExpediente string `json:"numeroDeExpediente"`
 	URL                string
 }
 
@@ -251,17 +283,9 @@ func getActuaciones(expId int) ([]Actuacion, error) {
 	return actuaciones, nil
 }
 
-func insertExpediente(exp *Expediente) error {
+func insertExpediente(es *elastic.Client, exp *Expediente) error {
 	var err error
 	var wg sync.WaitGroup
-	es, err := elastic.NewClient(elastic.SetURL("http://es:9200"))
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to connect to elastic")
-		return err
-	}
-
 	c, err := shared.InitTaskQueue("fetch")
 	if err != nil {
 		return err
@@ -297,7 +321,7 @@ func insertExpediente(exp *Expediente) error {
 			)
 			_, innerErr := es.Index().
 				Index(actuacionType).
-				Type(actuacionType).
+				Type("_doc").
 				Id(actuacion.Id()).
 				BodyJson(ActuacionWithExpediente{
 					Actuacion:          actuacion,
@@ -310,7 +334,7 @@ func insertExpediente(exp *Expediente) error {
 				log.WithFields(log.Fields{
 					"ficha":     exp.Ficha.Id(),
 					"actuacion": actuacion.ActId,
-				}).Error(err.Error())
+				}).Error(innerErr.Error())
 				return
 			}
 			err = c.Publish(
@@ -365,6 +389,30 @@ func waitForExpediente() (<-chan (string), error) {
 }
 
 func main() {
+	es, err := elastic.NewClient(elastic.SetURL("http://es:9200"))
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Failed to connect to elastic")
+	}
+
+	exists, err := es.IndexExists(actuacionType).Do(context.Background())
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("failed to check for index")
+	}
+	if !exists {
+		createIndex, err := es.CreateIndex(actuacionType).BodyString(actuacionMapping).Do(context.Background())
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Fatal("failed to create index")
+		}
+		if !createIndex.Acknowledged {
+			log.Error("did not ack index creation")
+		}
+	}
 	expedientes, err := waitForExpediente()
 	if err != nil {
 		log.Fatalf("%s\n", err)
@@ -380,7 +428,7 @@ func main() {
 		if err != nil {
 			continue
 		}
-		err = insertExpediente(exp)
+		err = insertExpediente(es, exp)
 		if err != nil {
 			continue
 		}

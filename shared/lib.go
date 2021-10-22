@@ -2,7 +2,9 @@ package shared
 
 import (
 	"context"
+	"crypto/sha1"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strings"
 
@@ -11,6 +13,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 )
+
+func GetSha1(s string) string {
+	h := sha1.New()
+	io.WriteString(h, s)
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
 
 func ReadSecret(name string) (string, error) {
 	body, err := ioutil.ReadFile(fmt.Sprintf("/run/secrets/%v", name))
@@ -95,3 +103,45 @@ func GetMinioClient(bucketName string) (*minio.Client, error) {
 	}
 	return minioClient, nil
 }
+
+func GetURLContent(url string, minioClient *minio.Client, bucketName string) (io.Reader, error) {
+	r, err := minioClient.GetObject(context.Background(), bucketName, GetSha1(url), minio.StatObjectOptions{})
+            if err != nil {
+                log.WithFields(log.Fields{
+                        "error": err.Error(),
+                    })
+                return nil, err
+            }
+    return r, nil
+}
+
+func WaitForTasks(queue, consumer string) (<-chan []byte, error) {
+	c, err := InitTaskQueue(queue)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.Qos(1, 0, false)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to set qos")
+		return nil, err
+	}
+	tasks, err := c.Consume(queue, consumer, false, false, false, false, nil)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to create consumer")
+		return nil, err
+	}
+	ch := make(chan []byte)
+	go func(tasks <-chan amqp.Delivery) {
+		for task := range tasks {
+			ch <- task.Body
+			task.Ack(false)
+		}
+	}(tasks)
+	return ch, nil
+}
+

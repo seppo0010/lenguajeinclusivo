@@ -5,11 +5,11 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 )
 
@@ -41,17 +41,32 @@ func urlIsSaved(url string, minioClient *minio.Client, bucketName string) bool {
 func saveURLToBucket(url string, minioClient *minio.Client, bucketName string) error {
 	res, err := http.Get(url)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+			"url":   url,
+		}).Warn("Failed to get url")
 		return err
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK {
 		uploadInfo, err := minioClient.PutObject(context.Background(), bucketName, getSha1(url), res.Body, -1, minio.PutObjectOptions{ContentType: res.Header.Get("content-type")})
 		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+				"url":   url,
+			}).Error("Failed to create object")
 			return err
 		}
-		log.Printf("uploaded %s %#v\n", url, uploadInfo)
+		log.WithFields(log.Fields{
+			"url":        url,
+			"uploadInfo": uploadInfo,
+		}).Info("Uploaded")
 	} else {
 		log.Printf("did not save %s because status code was %d", url, res.StatusCode)
+		log.WithFields(log.Fields{
+			"url":         url,
+			"status code": res.StatusCode,
+		}).Warn("Did not save")
 	}
 
 	return nil
@@ -60,23 +75,38 @@ func saveURLToBucket(url string, minioClient *minio.Client, bucketName string) e
 func initTaskQueue(name string) (*amqp.Channel, error) {
 	conn, err := amqp.Dial("amqp://queues/")
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to connect to amqp")
 		return nil, err
 	}
 
 	c, err := conn.Channel()
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to create channel")
 		return nil, err
 	}
 	err = c.ExchangeDeclare("tasks", "direct", true, false, false, false, nil)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to declare exchange")
 		return nil, err
 	}
 	_, err = c.QueueDeclare(name, true, false, false, false, nil)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to declare queue")
 		return nil, err
 	}
 	err = c.QueueBind(name, name, "tasks", false, nil)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to bind queue")
 		return nil, err
 	}
 	return c, nil
@@ -88,7 +118,9 @@ func enqueueIndex(url string) error {
 		return err
 	}
 
-	log.Printf("enqueuing %s for indexing", url)
+	log.WithFields(log.Fields{
+		"url": url,
+	}).Info("Enqueuing")
 	err = c.Publish(
 		"tasks",
 		"index",
@@ -99,6 +131,9 @@ func enqueueIndex(url string) error {
 			Body:        []byte(url),
 		})
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to publish to queue")
 		return err
 	}
 	return nil
@@ -112,10 +147,16 @@ func waitForURLs() (<-chan (string), error) {
 
 	err = c.Qos(1, 0, false)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to set qos")
 		return nil, err
 	}
 	tasks, err := c.Consume("fetch", "fetcher", false, false, false, false, nil)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to create consumer")
 		return nil, err
 	}
 	ch := make(chan string)
@@ -140,7 +181,9 @@ func main() {
 		Secure: useSSL,
 	})
 	if err != nil {
-		log.Fatalln(err)
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Connect to minio")
 	}
 	err = start(minioClient, bucketName)
 	if err != nil {
@@ -150,20 +193,21 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Printf("waiting for urls")
+	log.Info("waiting for urls")
 	for url := range urls {
-		log.Printf("received url: %s", url)
+		log.WithFields(log.Fields{
+			"url": url,
+		}).Info("Received")
 		exists := urlIsSaved(url, minioClient, bucketName)
 		if !exists {
 			err = saveURLToBucket(url, minioClient, bucketName)
 			if err != nil {
-				log.Println(err)
 				continue
 			}
 		}
 		err = enqueueIndex(url)
 		if err != nil {
-			log.Println(err)
+			continue
 		}
 	}
 }

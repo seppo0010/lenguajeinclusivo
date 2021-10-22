@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 
 	"github.com/olivere/elastic"
+	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 )
 
@@ -140,6 +140,9 @@ func getExpedienteCandidates(criteria string) ([]int, error) {
 		"info": {string(info)},
 	})
 	if err != nil {
+		log.WithFields(log.Fields{
+			"expediente": criteria,
+		}).Warn("Failed to get expediente")
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -147,6 +150,7 @@ func getExpedienteCandidates(criteria string) ([]int, error) {
 	sr := SearchResult{}
 	err = json.NewDecoder(resp.Body).Decode(&sr)
 	if err != nil {
+		log.Warn("Failed to decode json")
 		return nil, err
 	}
 	res := make([]int, len(sr.Content))
@@ -159,6 +163,9 @@ func getExpedienteCandidates(criteria string) ([]int, error) {
 func getFicha(candidate int) (*Ficha, error) {
 	resp, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/ficha?expId=%d", candidate))
 	if err != nil {
+		log.WithFields(log.Fields{
+			"expId": candidate,
+		}).Warn("Failed to get ficha")
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -166,6 +173,7 @@ func getFicha(candidate int) (*Ficha, error) {
 	ficha := Ficha{ExpId: candidate}
 	err = json.NewDecoder(resp.Body).Decode(&ficha)
 	if err != nil {
+		log.Warn("Failed to decode json")
 		return nil, err
 	}
 	return &ficha, nil
@@ -183,7 +191,10 @@ func searchExpediente(criteria string) (*Expediente, error) {
 			return nil, err
 		}
 		if strings.HasPrefix(criteria, fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio)) {
-			log.Printf("expediente found!")
+			log.WithFields(log.Fields{
+				"expediente": criteria,
+			}).Info("Expediente found!")
+
 			actuaciones, err := getActuaciones(candidate)
 			if err != nil {
 				return nil, err
@@ -194,19 +205,29 @@ func searchExpediente(criteria string) (*Expediente, error) {
 			}, nil
 		}
 	}
+	log.WithFields(log.Fields{
+		"expediente": criteria,
+	}).Info("cannot find expediente")
 	return nil, fmt.Errorf("cannot find ficha for criteria: %s", criteria)
 }
 
 func getActuacionesPage(expId int, pagenum int) (*ActuacionesPage, error) {
-	log.Printf("getting actuaciones page %d", pagenum)
+	log.WithFields(log.Fields{
+		"page": pagenum,
+	}).Info("getting actuaciones")
 	size := 100
 	res, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones?filtro=%%7B%%22cedulas%%22%%3Atrue%%2C%%22escritos%%22%%3Atrue%%2C%%22despachos%%22%%3Atrue%%2C%%22notas%%22%%3Atrue%%2C%%22expId%%22%%3A%d%%2C%%22accesoMinisterios%%22%%3Afalse%%7D&page=%d&size=%d", expId, pagenum, size))
 	if err != nil {
+		log.WithFields(log.Fields{
+			"expId":   expId,
+			"pagenum": pagenum,
+		}).Warn("Failed to get actuaciones")
 		return nil, err
 	}
 	page := ActuacionesPage{}
 	err = json.NewDecoder(res.Body).Decode(&page)
 	if err != nil {
+		log.Warn("Failed to decode json")
 		return nil, err
 	}
 	return &page, nil
@@ -238,26 +259,40 @@ type LogRequest string
 func initTaskQueue(name string) (*amqp.Channel, error) {
 	conn, err := amqp.Dial("amqp://queues/")
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to connect to amqp")
 		return nil, err
 	}
 
 	c, err := conn.Channel()
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to create channel")
 		return nil, err
 	}
 	err = c.ExchangeDeclare("tasks", "direct", true, false, false, false, nil)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to declare exchange")
 		return nil, err
 	}
 	_, err = c.QueueDeclare(name, true, false, false, false, nil)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to declare queue")
 		return nil, err
 	}
 	err = c.QueueBind(name, name, "tasks", false, nil)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to bind queue")
 		return nil, err
 	}
-
 	return c, nil
 }
 
@@ -266,6 +301,9 @@ func insertExpediente(exp *Expediente) error {
 	var wg sync.WaitGroup
 	es, err := elastic.NewClient(elastic.SetURL("http://es:9200"))
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to connect to elastic")
 		return err
 	}
 
@@ -274,28 +312,35 @@ func insertExpediente(exp *Expediente) error {
 		return err
 	}
 
-	log.Printf("saving ficha")
-	put, err := es.Index().
+	log.WithFields(log.Fields{
+		"ficha": exp.Ficha.Id(),
+	}).Info("saving ficha")
+	_, err = es.Index().
 		Index(fichaType).
 		Type(fichaType).
 		Id(exp.Ficha.Id()).
 		BodyJson(exp.Ficha).
 		Do(context.Background())
 	if err != nil {
+		log.WithFields(log.Fields{
+			"ficha": exp.Ficha.Id(),
+		}).Error(err.Error())
 		return err
 	}
-	log.Printf("Indexed ficha %s to index %s\n", put.Id, put.Index)
 
 	for i, actuacion := range exp.Actuaciones {
 		wg.Add(1)
 		go func(i int, actuacion Actuacion) {
-			log.Printf("saving actuacion %d", i)
+			log.WithFields(log.Fields{
+				"ficha":     exp.Ficha.Id(),
+				"actuacion": actuacion.ActId,
+			}).Info("saving actuacion")
 			url := fmt.Sprintf(
 				"https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/pdf?datos=%%7B%%22actId%%22:%d,%%22expId%%22:%d,%%22esNota%%22:false,%%22cedulaId%%22:null,%%22ministerios%%22:false%%7D",
 				actuacion.ActId,
 				exp.Ficha.ExpId,
 			)
-			put, innerErr := es.Index().
+			_, innerErr := es.Index().
 				Index(actuacionType).
 				Type(actuacionType).
 				Id(actuacion.Id()).
@@ -307,10 +352,12 @@ func insertExpediente(exp *Expediente) error {
 				Do(context.Background())
 			defer wg.Done()
 			if innerErr != nil {
-				err = innerErr
+				log.WithFields(log.Fields{
+					"ficha":     exp.Ficha.Id(),
+					"actuacion": actuacion.ActId,
+				}).Error(err.Error())
 				return
 			}
-			log.Printf("Indexed actuacion %s to index %s\n", put.Id, put.Index)
 			err = c.Publish(
 				"tasks",
 				"fetch",
@@ -320,6 +367,11 @@ func insertExpediente(exp *Expediente) error {
 					ContentType: "text/plain",
 					Body:        []byte(url),
 				})
+			if err != nil {
+				log.WithFields(log.Fields{
+					"error": err.Error(),
+				}).Error("Failed to publish fetch task")
+			}
 		}(i, actuacion)
 	}
 	wg.Wait()
@@ -335,10 +387,16 @@ func waitForExpediente() (<-chan (string), error) {
 
 	err = c.Qos(1, 0, false)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to set qos")
 		return nil, err
 	}
 	tasks, err := c.Consume("crawl", "crawler", false, false, false, false, nil)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to create consumer")
 		return nil, err
 	}
 	ch := make(chan string)
@@ -357,19 +415,22 @@ func main() {
 		log.Fatalf("%s\n", err)
 		return
 	}
-	log.Print("waiting for expedientes")
+	log.Info("waiting for expedientes")
 	for numexpediente := range expedientes {
 		log.Printf("received expediente %s", numexpediente)
+		log.WithFields(log.Fields{
+			"expediente": numexpediente,
+		}).Info("Received expediente")
 		exp, err := searchExpediente(numexpediente)
 		if err != nil {
-			log.Fatalf("%s\n", err)
-			return
+			continue
 		}
 		err = insertExpediente(exp)
 		if err != nil {
-			log.Fatalf("%s\n", err)
-			return
+			continue
 		}
-		log.Printf("finished with expediente %s", numexpediente)
+		log.WithFields(log.Fields{
+			"expediente": numexpediente,
+		}).Info("Finished expediente")
 	}
 }

@@ -79,6 +79,8 @@ services:
     secrets:
       - minio-user
       - minio-password
+    volumes:
+      - miniodata:/data
 
 secrets:
   minio-user:
@@ -97,4 +99,5 @@ networks:
 
 volumes:
   esdata:
+  miniodata:
   rabbitmqdata:

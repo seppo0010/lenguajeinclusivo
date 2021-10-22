@@ -106,13 +106,13 @@ func GetMinioClient(bucketName string) (*minio.Client, error) {
 
 func GetURLContent(url string, minioClient *minio.Client, bucketName string) (io.Reader, error) {
 	r, err := minioClient.GetObject(context.Background(), bucketName, GetSha1(url), minio.StatObjectOptions{})
-            if err != nil {
-                log.WithFields(log.Fields{
-                        "error": err.Error(),
-                    })
-                return nil, err
-            }
-    return r, nil
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("cannot get object")
+		return nil, err
+	}
+	return r, nil
 }
 
 func WaitForTasks(queue, consumer string) (<-chan []byte, error) {
@@ -144,4 +144,3 @@ func WaitForTasks(queue, consumer string) (<-chan []byte, error) {
 	}(tasks)
 	return ch, nil
 }
-

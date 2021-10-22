@@ -16,7 +16,7 @@ import (
 const actuacionType = "actuacion"
 
 func writeToTempFile(r io.Reader) (string, string, error) {
-	dir, err := ioutil.TempDir("", "pdftotext")
+	dir, err := ioutil.TempDir("", "extracttext")
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
@@ -101,12 +101,11 @@ func updateActuacionWithText(url, text string) error {
 		return err
 	}
 
-	q, err := es.UpdateByQuery(actuacionType).
+	_, err = es.UpdateByQuery(actuacionType).
 		Query(elastic.NewTermQuery("URL", url)).
 		Script(elastic.NewScript("ctx._source.text = params['t']").
 			Params(map[string]interface{}{"t": text})).
 		Do(context.Background())
-	log.WithFields(log.Fields{"q": q}).Infof("%#v", q)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),

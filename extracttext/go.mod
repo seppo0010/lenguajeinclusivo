@@ -1,4 +1,4 @@
-module github.com/seppo0010/juscaba/pdftotext
+module github.com/seppo0010/juscaba/extracttext
 
 go 1.17
 

@@ -135,7 +135,7 @@ func WaitForTasks(queue, consumer string) (<-chan []byte, error) {
 		}).Error("Failed to create consumer")
 		return nil, err
 	}
-	ch := make(chan []byte)
+	ch := make(chan []byte, 1)
 	go func(tasks <-chan amqp.Delivery) {
 		for task := range tasks {
 			ch <- task.Body

@@ -4,13 +4,13 @@ WORKDIR /go/src/app
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
-COPY pdftotext/go.mod pdftotext/go.sum ./
+COPY extracttext/go.mod extracttext/go.sum ./
 COPY ./shared /go/src/shared
 RUN go mod download
 
-COPY ./pdftotext .
+COPY ./extracttext .
 
 RUN go get -d -v ./...
 RUN go install -v ./...
 
-CMD ["pdftotext"]
+CMD ["extracttext"]

@@ -111,6 +111,7 @@ func (actuacion *Actuacion) Id() string {
 type ActuacionWithExpediente struct {
 	Actuacion
 	NumeroDeExpediente string
+	URL                string
 }
 
 type ActuacionesPagePageable struct {
@@ -284,6 +285,11 @@ func insertExpediente(exp *Expediente) error {
 		wg.Add(1)
 		go func(i int, actuacion Actuacion) {
 			log.Printf("saving actuacion %d", i)
+			url := fmt.Sprintf(
+				"https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/pdf?datos=%%7B%%22actId%%22:%d,%%22expId%%22:%d,%%22esNota%%22:false,%%22cedulaId%%22:null,%%22ministerios%%22:false%%7D",
+				actuacion.ActId,
+				exp.Ficha.ExpId,
+			)
 			put, innerErr := es.Index().
 				Index(actuacionType).
 				Type(actuacionType).
@@ -291,6 +297,7 @@ func insertExpediente(exp *Expediente) error {
 				BodyJson(ActuacionWithExpediente{
 					Actuacion:          actuacion,
 					NumeroDeExpediente: fmt.Sprintf("%d/%d", exp.Ficha.Numero, exp.Ficha.Anio),
+					URL:                url,
 				}).
 				Do(context.Background())
 			defer wg.Done()
@@ -306,11 +313,7 @@ func insertExpediente(exp *Expediente) error {
 				false,
 				amqp.Publishing{
 					ContentType: "text/plain",
-					Body: []byte(fmt.Sprintf(
-						"https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/pdf?datos=%%7B%%22actId%%22:%d,%%22expId%%22:%d,%%22esNota%%22:false,%%22cedulaId%%22:null,%%22ministerios%%22:false%%7D",
-						actuacion.ActId,
-						exp.Ficha.ExpId,
-					)),
+					Body:        []byte(url),
 				})
 		}(i, actuacion)
 	}

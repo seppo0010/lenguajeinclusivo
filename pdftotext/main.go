@@ -90,7 +90,10 @@ func getDocumentText(r io.Reader) (string, error) {
 }
 
 func updateActuacionWithText(url, text string) error {
-	es, err := elastic.NewClient(elastic.SetURL("http://es:9200"))
+	es, err := elastic.NewClient(
+		elastic.SetURL("http://es:9200"),
+		elastic.SetSniff(false),
+	)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),

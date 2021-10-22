@@ -389,7 +389,10 @@ func waitForExpediente() (<-chan (string), error) {
 }
 
 func main() {
-	es, err := elastic.NewClient(elastic.SetURL("http://es:9200"))
+	es, err := elastic.NewClient(
+		elastic.SetURL("http://es:9200"),
+		elastic.SetSniff(false),
+	)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),

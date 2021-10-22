@@ -15,6 +15,7 @@ services:
       - esdata:/usr/share/elasticsearch/data
     networks:
       - crawler-database
+      - pdftotext-database
   queues:
     image: rabbitmq:3-management
     restart: on-failure
@@ -25,6 +26,7 @@ services:
     networks:
       - crawler-queue
       - fetcher-queue
+      - pdftotext-queue
   crawler:
     build:
       context: .
@@ -50,6 +52,21 @@ services:
     secrets:
       - minio-user
       - minio-password
+  pdftotext:
+    build:
+      context: .
+      dockerfile: Dockerfile.pdftotext
+    restart: on-failure
+    networks:
+      - pdftotext-queue
+      - pdftotext-minio
+      - pdftotext-database
+    depends_on:
+      - "queues"
+      - "minio"
+    secrets:
+      - minio-user
+      - minio-password
   minio:
     image: minio/minio:RELEASE.2021-10-10T16-53-30Z
     command: minio server /data
@@ -58,10 +75,10 @@ services:
       - MINIO_ROOT_PASSWORD_FILE=/run/secrets/minio-password
     networks:
       - fetcher-minio
+      - pdftotext-minio
     secrets:
       - minio-user
       - minio-password
-
 
 secrets:
   minio-user:
@@ -74,6 +91,9 @@ networks:
   crawler-queue:
   fetcher-queue:
   fetcher-minio:
+  pdftotext-queue:
+  pdftotext-minio:
+  pdftotext-database:
 
 volumes:
   esdata:

@@ -45,6 +45,9 @@ services:
     depends_on:
       - "queues"
       - "minio"
+    secrets:
+      - minio-user
+      - minio-password
   minio:
     image: minio/minio:RELEASE.2021-10-10T16-53-30Z
     command: minio server /data

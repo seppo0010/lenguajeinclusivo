@@ -5,7 +5,9 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -169,14 +171,30 @@ func waitForURLs() (<-chan (string), error) {
 	return ch, nil
 }
 
+func readSecret(name string) (string, error) {
+	body, err := ioutil.ReadFile(fmt.Sprintf("/run/secrets/%v", name))
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+			"name":  name,
+		}).Fatal("failed to read secret")
+	}
+	return strings.TrimSpace(string(body)), nil
+}
+
 func main() {
-	endpoint := "minio:9000"
-	accessKeyID := "00c54c8a5e6a0e3eb04801d0f1b04425"
-	secretAccessKey := "994381299ca8033f9f4786332bcd692072daec65"
+	accessKeyID, err := readSecret("minio-user")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	secretAccessKey, err := readSecret("minio-password")
+	if err != nil {
+		log.Fatalln(err)
+	}
 	useSSL := false
 	bucketName := "pdfs"
 
-	minioClient, err := minio.New(endpoint, &minio.Options{
+	minioClient, err := minio.New("minio:9000", &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 	})

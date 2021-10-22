@@ -21,20 +21,6 @@ func getSha1(s string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func start(minioClient *minio.Client, bucketName string) error {
-	found, err := minioClient.BucketExists(context.Background(), bucketName)
-	if err != nil {
-		return err
-	}
-	if !found {
-		err = minioClient.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{Region: "us-east-1"})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func urlIsSaved(url string, minioClient *minio.Client, bucketName string) bool {
 	_, err := minioClient.StatObject(context.Background(), bucketName, getSha1(url), minio.StatObjectOptions{})
 	return err == nil
@@ -182,18 +168,16 @@ func readSecret(name string) (string, error) {
 	return strings.TrimSpace(string(body)), nil
 }
 
-func main() {
+func getMinioClient(bucketName string) (*minio.Client, error) {
+	useSSL := false
 	accessKeyID, err := readSecret("minio-user")
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 	secretAccessKey, err := readSecret("minio-password")
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
-	useSSL := false
-	bucketName := "pdfs"
-
 	minioClient, err := minio.New("minio:9000", &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
@@ -201,11 +185,29 @@ func main() {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Fatal("Connect to minio")
+		}).Fatal("failed to connect to minio")
+		return nil, err
 	}
-	err = start(minioClient, bucketName)
+	found, err := minioClient.BucketExists(context.Background(), bucketName)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
+	}
+	if !found {
+		err = minioClient.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{Region: "us-east-1"})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return minioClient, nil
+}
+
+func main() {
+	bucketName := "pdfs"
+	minioClient, err := getMinioClient(bucketName)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Connect to minio")
 	}
 	urls, err := waitForURLs()
 	if err != nil {

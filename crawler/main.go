@@ -21,6 +21,7 @@ const documentType = "document"
 const regularAttachment = 0
 const actuacionesNotificadasAttachment = 1
 const adjuntosAttachment = 1
+const cedulaAttachment = 2
 
 const actuacionMapping = `
 {
@@ -184,12 +185,14 @@ func getExpedienteCandidates(criteria string) ([]int, error) {
 		Size:         10,
 	})
 
-	resp, err := http.PostForm("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/lista", url.Values{
+	u := "https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/lista"
+	resp, err := http.PostForm(u, url.Values{
 		"info": {string(info)},
 	})
 	if err != nil {
 		log.WithFields(log.Fields{
 			"expediente": criteria,
+			"url":        u,
 		}).Warn("Failed to get expediente")
 		return nil, err
 	}
@@ -198,7 +201,11 @@ func getExpedienteCandidates(criteria string) ([]int, error) {
 	sr := SearchResult{}
 	err = json.NewDecoder(resp.Body).Decode(&sr)
 	if err != nil {
-		log.Warn("Failed to decode json")
+		log.WithFields(log.Fields{
+			"expediente": criteria,
+			"url":        u,
+			"httpStatus": resp.StatusCode,
+		}).Warn("Failed to decode json")
 		return nil, err
 	}
 	res := make([]int, len(sr.Content))
@@ -209,10 +216,12 @@ func getExpedienteCandidates(criteria string) ([]int, error) {
 }
 
 func getFicha(candidate int) (*Ficha, error) {
-	resp, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/ficha?expId=%d", candidate))
+	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/ficha?expId=%d", candidate)
+	resp, err := http.Get(u)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"expId": candidate,
+			"url":   u,
 		}).Warn("Failed to get ficha")
 		return nil, err
 	}
@@ -221,7 +230,11 @@ func getFicha(candidate int) (*Ficha, error) {
 	ficha := Ficha{ExpId: candidate}
 	err = json.NewDecoder(resp.Body).Decode(&ficha)
 	if err != nil {
-		log.Warn("Failed to decode json")
+		log.WithFields(log.Fields{
+			"expId":      candidate,
+			"url":        u,
+			"httpStatus": resp.StatusCode,
+		}).Warn("Failed to decode json")
 		return nil, err
 	}
 	return &ficha, nil
@@ -264,18 +277,29 @@ func getActuacionesPage(expId int, pagenum int) (*ActuacionesPage, error) {
 		"page": pagenum,
 	}).Info("getting actuaciones")
 	size := 100
-	res, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones?filtro=%%7B%%22cedulas%%22%%3Atrue%%2C%%22escritos%%22%%3Atrue%%2C%%22despachos%%22%%3Atrue%%2C%%22notas%%22%%3Atrue%%2C%%22expId%%22%%3A%d%%2C%%22accesoMinisterios%%22%%3Afalse%%7D&page=%d&size=%d", expId, pagenum, size))
+	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones?filtro=%%7B%%22cedulas%%22%%3Atrue%%2C%%22escritos%%22%%3Atrue%%2C%%22despachos%%22%%3Atrue%%2C%%22notas%%22%%3Atrue%%2C%%22expId%%22%%3A%d%%2C%%22accesoMinisterios%%22%%3Afalse%%7D&page=%d&size=%d",
+		expId,
+		pagenum,
+		size,
+	)
+	res, err := http.Get(u)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"expId":   expId,
 			"pagenum": pagenum,
+			"url":     u,
 		}).Warn("Failed to get actuaciones")
 		return nil, err
 	}
 	page := ActuacionesPage{}
 	err = json.NewDecoder(res.Body).Decode(&page)
 	if err != nil {
-		log.Warn("Failed to decode json")
+		log.WithFields(log.Fields{
+			"expId":      expId,
+			"pagenum":    pagenum,
+			"url":        u,
+			"httpStatus": res.StatusCode,
+		}).Warn("Failed to decode json")
 		return nil, err
 	}
 	return &page, nil
@@ -298,14 +322,16 @@ func getActuaciones(expId int) ([]Actuacion, error) {
 	return actuaciones, nil
 }
 
-func insertAdjuntos(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion) {
-	resp, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/cedulas/adjuntos?filter=%%7B%%22cedulaCuij%%22:%%22%v%%22,%%22expId%%22:%v,%%22ministerios%%22:false%%7D",
+func insertAdjuntosCedula(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion) {
+	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/cedulas/adjuntos?filter=%%7B%%22cedulaCuij%%22:%%22%v%%22,%%22expId%%22:%v,%%22ministerios%%22:false%%7D",
 		actuacion.CUIJ,
 		ficha.ExpId,
-	))
+	)
+	resp, err := http.Get(u)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"actId": actuacion.ActId,
+			"url":   u,
 		}).Warn("Failed to get adjuntos")
 		return
 	}
@@ -314,7 +340,11 @@ func insertAdjuntos(es *elastic.Client, c *amqp.Channel, url string, ficha *Fich
 	adjuntos := []map[string]interface{}{}
 	err = json.NewDecoder(resp.Body).Decode(&adjuntos)
 	if err != nil {
-		log.Warn("Failed to decode json")
+		log.WithFields(log.Fields{
+			"actId":      actuacion.ActId,
+			"url":        u,
+			"httpStatus": resp.StatusCode,
+		}).Warn("Failed to decode json")
 		return
 	}
 	for _, adjunto := range adjuntos {
@@ -322,7 +352,48 @@ func insertAdjuntos(es *elastic.Client, c *amqp.Channel, url string, ficha *Fich
 			adjunto["adjuntoId"],
 			ficha.ExpId,
 		)
-		insertDocument(es, c, url, ficha, actuacion, adjuntosAttachment, adjunto["adjuntoNombre"].(string))
+		insertDocument(es, c, url, ficha, actuacion, cedulaAttachment, adjunto["adjuntoNombre"].(string))
+	}
+}
+func insertAdjuntosNoCedula(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion) {
+	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/adjuntos?actId=%v&expId=%v&accesoMinisterios=false",
+		actuacion.ActId,
+		ficha.ExpId,
+	)
+	resp, err := http.Get(u)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"actId": actuacion.ActId,
+			"url":   u,
+		}).Warn("Failed to get adjuntos")
+		return
+	}
+	defer resp.Body.Close()
+
+	adjuntos := map[string][]map[string]interface{}{}
+	err = json.NewDecoder(resp.Body).Decode(&adjuntos)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"httpStatus": resp.StatusCode,
+			"actId":      actuacion.ActId,
+			"url":        u,
+		}).Warn("Failed to decode json")
+		return
+	}
+	for _, adjunto := range adjuntos["adjuntos"] {
+		url := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/adjuntoPdf?filter=%%7B%%22aacId%%22:%v,%%22expId%%22:%v,%%22ministerios%%22:false%%7D",
+			adjunto["adjId"],
+			ficha.ExpId,
+		)
+		insertDocument(es, c, url, ficha, actuacion, adjuntosAttachment, adjunto["titulo"].(string))
+	}
+}
+
+func insertAdjuntos(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion) {
+	if actuacion.EsCedula == 1 {
+		insertAdjuntosCedula(es, c, url, ficha, actuacion)
+	} else {
+		insertAdjuntosNoCedula(es, c, url, ficha, actuacion)
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const actuacionType = "actuacion"
+const documentType = "document"
 
 func writeToTempFile(r io.Reader) (string, string, error) {
 	dir, err := ioutil.TempDir("", "extracttext")
@@ -90,7 +90,7 @@ func getDocumentText(r io.Reader) (string, error) {
 	return string(stdoutBytes), nil
 }
 func documentHasText(es *elastic.Client, url string) (bool, error) {
-	res, err := es.Search().
+	res, err := es.Search(documentType).
 		Query(elastic.NewTermQuery("URL", url)).
 		Do(context.Background())
 	if err != nil {
@@ -111,7 +111,7 @@ func documentHasText(es *elastic.Client, url string) (bool, error) {
 	if len(hits) > 1 {
 		log.WithFields(log.Fields{
 			"url": url,
-		}).Warn("more than one actuacion with the same URL found")
+		}).Warn("more than one document with the same URL found")
 		return true, nil
 	}
 	var t struct {
@@ -128,7 +128,7 @@ func documentHasText(es *elastic.Client, url string) (bool, error) {
 }
 
 func updateActuacionWithText(es *elastic.Client, url, text string) error {
-	_, err := es.UpdateByQuery(actuacionType).
+	_, err := es.UpdateByQuery(documentType).
 		Query(elastic.NewTermQuery("URL", url)).
 		Script(elastic.NewScript("ctx._source.text = params['t']").
 			Params(map[string]interface{}{"t": text})).

@@ -17,6 +17,8 @@ import (
 
 const fichaType = "ficha"
 const actuacionType = "actuacion"
+const documentType = "document"
+const regularAttachment = 0
 
 const actuacionMapping = `
 {
@@ -43,7 +45,19 @@ const actuacionMapping = `
 			},
 			"numeroDeExpediente":{
 				"type":"keyword"
-			},
+			}
+		}
+	}
+}`
+
+const documentMapping = `
+{
+	"settings":{
+		"number_of_shards": 1,
+		"number_of_replicas": 0
+	},
+	"mappings":{
+		"properties":{
 			"URL":{
 				"type":"keyword"
 			}
@@ -144,7 +158,6 @@ func (actuacion *Actuacion) Id() string {
 type ActuacionWithExpediente struct {
 	Actuacion
 	NumeroDeExpediente string `json:"numeroDeExpediente"`
-	URL                string
 }
 
 type ActuacionesPagePageable struct {
@@ -310,6 +323,7 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 	for i, actuacion := range exp.Actuaciones {
 		wg.Add(1)
 		go func(i int, actuacion Actuacion) {
+			defer wg.Done()
 			log.WithFields(log.Fields{
 				"ficha":     exp.Ficha.Id(),
 				"actuacion": actuacion.ActId,
@@ -327,10 +341,8 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 				BodyJson(ActuacionWithExpediente{
 					Actuacion:          actuacion,
 					NumeroDeExpediente: fmt.Sprintf("%d/%d", exp.Ficha.Numero, exp.Ficha.Anio),
-					URL:                url,
 				}).
 				Do(context.Background())
-			defer wg.Done()
 			if innerErr != nil && !elastic.IsConflict(innerErr) {
 				log.WithFields(log.Fields{
 					"ficha":     exp.Ficha.Id(),
@@ -338,6 +350,28 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 				}).Error(innerErr.Error())
 				return
 			}
+
+			_, innerErr = es.Index().
+				Index(documentType).
+				Type("_doc").
+				OpType("create").
+				Id(url).
+				BodyJson(map[string]interface{}{
+					"URL":                url,
+					"actuacionId":        actuacion.Id(),
+					"numeroDeExpediente": fmt.Sprintf("%d/%d", exp.Ficha.Numero, exp.Ficha.Anio),
+					"type":               regularAttachment,
+				}).
+				Do(context.Background())
+
+			if innerErr != nil && !elastic.IsConflict(innerErr) {
+				log.WithFields(log.Fields{
+					"ficha":     exp.Ficha.Id(),
+					"actuacion": actuacion.ActId,
+				}).Error(innerErr.Error())
+				return
+			}
+
 			err = c.Publish(
 				"tasks",
 				"fetch",
@@ -389,6 +423,49 @@ func waitForExpediente() (<-chan (string), error) {
 	return ch, nil
 }
 
+func installMappings(es *elastic.Client) error {
+	exists, err := es.IndexExists(actuacionType).Do(context.Background())
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("failed to check for index")
+		return err
+	}
+	if !exists {
+		createIndex, err := es.CreateIndex(actuacionType).BodyString(actuacionMapping).Do(context.Background())
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Error("failed to create index")
+			return err
+		}
+		if !createIndex.Acknowledged {
+			return fmt.Errorf("did not ack index creation")
+		}
+	}
+
+	exists, err = es.IndexExists(documentType).Do(context.Background())
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("failed to check for index")
+		return err
+	}
+	if !exists {
+		createIndex, err := es.CreateIndex(documentType).BodyString(documentMapping).Do(context.Background())
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Error("failed to create index")
+			return err
+		}
+		if !createIndex.Acknowledged {
+			return fmt.Errorf("did not ack index creation")
+		}
+	}
+	return nil
+}
+
 func main() {
 	es, err := elastic.NewClient(
 		elastic.SetURL("http://es:9200"),
@@ -399,24 +476,11 @@ func main() {
 			"error": err.Error(),
 		}).Fatal("Failed to connect to elastic")
 	}
-
-	exists, err := es.IndexExists(actuacionType).Do(context.Background())
+	err = installMappings(es)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Fatal("failed to check for index")
+		log.Fatal(err.Error())
 	}
-	if !exists {
-		createIndex, err := es.CreateIndex(actuacionType).BodyString(actuacionMapping).Do(context.Background())
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err.Error(),
-			}).Fatal("failed to create index")
-		}
-		if !createIndex.Acknowledged {
-			log.Error("did not ack index creation")
-		}
-	}
+
 	expedientes, err := waitForExpediente()
 	if err != nil {
 		log.Fatalf("%s\n", err)

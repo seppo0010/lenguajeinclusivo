@@ -100,6 +100,7 @@ func documentHasText(es *elastic.Client, url string) (bool, error) {
 		}).Error("failed to check for text")
 		return false, err
 	}
+
 	hits := res.Hits.Hits
 	if len(hits) == 0 {
 		log.WithFields(log.Fields{
@@ -116,7 +117,13 @@ func documentHasText(es *elastic.Client, url string) (bool, error) {
 	var t struct {
 		Text string `json:"text"`
 	}
-	json.Unmarshal(hits[0].Source, &t)
+	err = json.Unmarshal(hits[0].Source, &t)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("failed to extract hit text")
+		return false, err
+	}
 	return t.Text != "", nil
 }
 

@@ -322,6 +322,7 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 			_, innerErr := es.Index().
 				Index(actuacionType).
 				Type("_doc").
+				OpType("create").
 				Id(actuacion.Id()).
 				BodyJson(ActuacionWithExpediente{
 					Actuacion:          actuacion,
@@ -330,7 +331,7 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 				}).
 				Do(context.Background())
 			defer wg.Done()
-			if innerErr != nil {
+			if innerErr != nil && !elastic.IsConflict(innerErr) {
 				log.WithFields(log.Fields{
 					"ficha":     exp.Ficha.Id(),
 					"actuacion": actuacion.ActId,

@@ -19,6 +19,7 @@ const fichaType = "ficha"
 const actuacionType = "actuacion"
 const documentType = "document"
 const regularAttachment = 0
+const actuacionesNotificadasAttachment = 1
 
 const actuacionMapping = `
 {
@@ -296,6 +297,42 @@ func getActuaciones(expId int) ([]Actuacion, error) {
 	return actuaciones, nil
 }
 
+func insertDocument(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion, typ int) {
+	_, err := es.Index().
+		Index(documentType).
+		Type("_doc").
+		OpType("create").
+		Id(url).
+		BodyJson(map[string]interface{}{
+			"URL":                url,
+			"actuacionId":        actuacion.Id(),
+			"numeroDeExpediente": fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio),
+			"type":               typ,
+		}).
+		Do(context.Background())
+
+	if err != nil && !elastic.IsConflict(err) {
+		log.WithFields(log.Fields{
+			"ficha":     ficha.Id(),
+			"actuacion": actuacion.ActId,
+		}).Error(err.Error())
+	}
+	err = c.Publish(
+		"tasks",
+		"fetch",
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(url),
+		})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to publish fetch task")
+	}
+}
+
 func insertExpediente(es *elastic.Client, exp *Expediente) error {
 	var err error
 	var wg sync.WaitGroup
@@ -350,42 +387,17 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 				}).Error(innerErr.Error())
 				return
 			}
+			insertDocument(es, c, url, exp.Ficha, &actuacion, regularAttachment)
+			if actuacion.ActuacionesNotificadas != "" {
 
-			_, innerErr = es.Index().
-				Index(documentType).
-				Type("_doc").
-				OpType("create").
-				Id(url).
-				BodyJson(map[string]interface{}{
-					"URL":                url,
-					"actuacionId":        actuacion.Id(),
-					"numeroDeExpediente": fmt.Sprintf("%d/%d", exp.Ficha.Numero, exp.Ficha.Anio),
-					"type":               regularAttachment,
-				}).
-				Do(context.Background())
-
-			if innerErr != nil && !elastic.IsConflict(innerErr) {
-				log.WithFields(log.Fields{
-					"ficha":     exp.Ficha.Id(),
-					"actuacion": actuacion.ActId,
-				}).Error(innerErr.Error())
-				return
+				insertDocument(es, c, fmt.Sprintf(
+					"https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/pdf?datos=%%7B%%22actId%%22:%%22%v%%22,%%22expId%%22:%v,%%22esNota%%22:false,%%22cedulaId%%22:%v,%%22ministerios%%22:false%%7D",
+					actuacion.ActuacionesNotificadas,
+					exp.ExpId,
+					actuacion.ActId,
+				), exp.Ficha, &actuacion, actuacionesNotificadasAttachment)
 			}
 
-			err = c.Publish(
-				"tasks",
-				"fetch",
-				false,
-				false,
-				amqp.Publishing{
-					ContentType: "text/plain",
-					Body:        []byte(url),
-				})
-			if err != nil {
-				log.WithFields(log.Fields{
-					"error": err.Error(),
-				}).Error("Failed to publish fetch task")
-			}
 		}(i, actuacion)
 	}
 	wg.Wait()

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
@@ -88,20 +89,39 @@ func getDocumentText(r io.Reader) (string, error) {
 	}
 	return string(stdoutBytes), nil
 }
-
-func updateActuacionWithText(url, text string) error {
-	es, err := elastic.NewClient(
-		elastic.SetURL("http://es:9200"),
-		elastic.SetSniff(false),
-	)
+func documentHasText(es *elastic.Client, url string) (bool, error) {
+	res, err := es.Search().
+		Query(elastic.NewTermQuery("URL", url)).
+		Do(context.Background())
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Error("Failed to connect to elastic")
-		return err
+			"url":   url,
+		}).Error("failed to check for text")
+		return false, err
 	}
+	hits := res.Hits.Hits
+	if len(hits) == 0 {
+		log.WithFields(log.Fields{
+			"url": url,
+		}).Warn("extracting text from unknown url")
+		return true, nil
+	}
+	if len(hits) > 1 {
+		log.WithFields(log.Fields{
+			"url": url,
+		}).Warn("more than one actuacion with the same URL found")
+		return true, nil
+	}
+	var t struct {
+		Text string `json:"text"`
+	}
+	json.Unmarshal(hits[0].Source, &t)
+	return t.Text != "", nil
+}
 
-	_, err = es.UpdateByQuery(actuacionType).
+func updateActuacionWithText(es *elastic.Client, url, text string) error {
+	_, err := es.UpdateByQuery(actuacionType).
 		Query(elastic.NewTermQuery("URL", url)).
 		Script(elastic.NewScript("ctx._source.text = params['t']").
 			Params(map[string]interface{}{"t": text})).
@@ -122,6 +142,17 @@ func main() {
 			"error": err.Error(),
 		}).Fatal("Connect to minio")
 	}
+
+	es, err := elastic.NewClient(
+		elastic.SetURL("http://es:9200"),
+		elastic.SetSniff(false),
+	)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Failed to connect to elastic")
+	}
+
 	urls, err := shared.WaitForTasks("index", "indexer")
 	if err != nil {
 		log.Fatalln(err)
@@ -132,6 +163,13 @@ func main() {
 		log.WithFields(log.Fields{
 			"url": url,
 		}).Info("Received")
+		hasText, _ := documentHasText(es, url)
+		if hasText {
+			log.WithFields(log.Fields{
+				"url": url,
+			}).Info("Skipping")
+			continue
+		}
 		reader, err := shared.GetURLContent(url, minioClient, bucketName)
 		if err != nil {
 			continue
@@ -140,7 +178,7 @@ func main() {
 		if err != nil {
 			continue
 		}
-		err = updateActuacionWithText(url, text)
+		err = updateActuacionWithText(es, url, text)
 		if err != nil {
 			continue
 		}

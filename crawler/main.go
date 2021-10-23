@@ -20,6 +20,7 @@ const actuacionType = "actuacion"
 const documentType = "document"
 const regularAttachment = 0
 const actuacionesNotificadasAttachment = 1
+const adjuntosAttachment = 1
 
 const actuacionMapping = `
 {
@@ -297,7 +298,35 @@ func getActuaciones(expId int) ([]Actuacion, error) {
 	return actuaciones, nil
 }
 
-func insertDocument(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion, typ int) {
+func insertAdjuntos(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion) {
+	resp, err := http.Get(fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/cedulas/adjuntos?filter=%%7B%%22cedulaCuij%%22:%%22%v%%22,%%22expId%%22:%v,%%22ministerios%%22:false%%7D",
+		actuacion.CUIJ,
+		ficha.ExpId,
+	))
+	if err != nil {
+		log.WithFields(log.Fields{
+			"actId": actuacion.ActId,
+		}).Warn("Failed to get adjuntos")
+		return
+	}
+	defer resp.Body.Close()
+
+	adjuntos := []map[string]interface{}{}
+	err = json.NewDecoder(resp.Body).Decode(&adjuntos)
+	if err != nil {
+		log.Warn("Failed to decode json")
+		return
+	}
+	for _, adjunto := range adjuntos {
+		url := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/cedulas/adjuntoPdf?filter=%%7B%%22aacId%%22:%v,%%22expId%%22:%v,%%22ministerios%%22:false%%7D",
+			adjunto["adjuntoId"],
+			ficha.ExpId,
+		)
+		insertDocument(es, c, url, ficha, actuacion, adjuntosAttachment, adjunto["adjuntoNombre"].(string))
+	}
+}
+
+func insertDocument(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion, typ int, nombre string) {
 	_, err := es.Index().
 		Index(documentType).
 		Type("_doc").
@@ -308,6 +337,7 @@ func insertDocument(es *elastic.Client, c *amqp.Channel, url string, ficha *Fich
 			"actuacionId":        actuacion.Id(),
 			"numeroDeExpediente": fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio),
 			"type":               typ,
+			"nombre":             nombre,
 		}).
 		Do(context.Background())
 
@@ -387,7 +417,7 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 				}).Error(innerErr.Error())
 				return
 			}
-			insertDocument(es, c, url, exp.Ficha, &actuacion, regularAttachment)
+			insertDocument(es, c, url, exp.Ficha, &actuacion, regularAttachment, "")
 			if actuacion.ActuacionesNotificadas != "" {
 
 				insertDocument(es, c, fmt.Sprintf(
@@ -395,7 +425,10 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 					actuacion.ActuacionesNotificadas,
 					exp.ExpId,
 					actuacion.ActId,
-				), exp.Ficha, &actuacion, actuacionesNotificadasAttachment)
+				), exp.Ficha, &actuacion, actuacionesNotificadasAttachment, "")
+			}
+			if actuacion.PoseeAdjunto > 0 {
+				insertAdjuntos(es, c, url, exp.Ficha, &actuacion)
 			}
 
 		}(i, actuacion)

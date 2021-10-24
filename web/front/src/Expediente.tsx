@@ -7,7 +7,6 @@ function Expediente({id}: {id: string}) {
   const dispatch = useDispatch()
   const expediente = useSelector(selectExpediente)
   const expedienteStatus  = useSelector((state: RootState) => state.expediente.status)
-  console.log(expediente)
 
   useEffect(() => {
     if (expedienteStatus === 'idle') {
@@ -17,6 +16,11 @@ function Expediente({id}: {id: string}) {
   return (
     <div>
       <p>Expediente: {expediente?.ficha.caratula}</p>
+      {expediente?.actuaciones && <ul>
+        {expediente?.actuaciones.map((act) => <li key={act.actId}>
+          {act.titulo} - {act.firmantes} ({new Date(act.fechaFirma).toString()})
+        </li>)}
+      </ul>}
     </div>
   );
 }

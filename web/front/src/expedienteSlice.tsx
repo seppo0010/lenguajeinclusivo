@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, nanoid } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import type { RootState } from './store'
 
 export const fetchExpediente = createAsyncThunk('expediente/get', async ({id}: {id: string}) => {
@@ -17,7 +17,10 @@ export declare interface Ficha {
 }
 
 export declare interface Actuacion {
+  actId: number
+  titulo: string
   firmantes: string
+  fechaFirma: number
 }
 
 export interface State {
@@ -36,12 +39,6 @@ const expedienteSlice = createSlice({
   name: 'expediente',
   initialState,
   reducers: {
-    expedienteFetched: {
-      reducer(state, action) {
-        state.expediente = action.payload
-      },
-      prepare(data: any) { return { id: nanoid(), payload: data } as any },
-    },
   },
   extraReducers: (builder) => {
     builder.addCase(fetchExpediente.pending, (state, action) => {
@@ -50,6 +47,7 @@ const expedienteSlice = createSlice({
     builder.addCase(fetchExpediente.fulfilled, (state, action) => {
       state.status = 'succeeded'
       state.expediente = action.payload
+      state.expediente?.actuaciones.sort((e1, e2) => - e1.fechaFirma + e2.fechaFirma)
     })
     builder.addCase(fetchExpediente.rejected, (state, action) => {
       state.status = 'failed'

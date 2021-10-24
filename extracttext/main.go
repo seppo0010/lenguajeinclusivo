@@ -15,8 +15,6 @@ import (
 	"github.com/seppo0010/juscaba/shared"
 )
 
-const documentType = "document"
-
 func writeToTempFile(r io.Reader) (string, string, error) {
 	dir, err := ioutil.TempDir("", "extracttext")
 	if err != nil {
@@ -91,7 +89,7 @@ func getDocumentText(r io.Reader) (string, error) {
 	return string(stdoutBytes), nil
 }
 func documentHasText(es *elastic.Client, url string) (bool, error) {
-	res, err := es.Search(documentType).
+	res, err := es.Search(shared.DocumentType).
 		Query(elastic.NewTermQuery("URL", url)).
 		Do(context.Background())
 	if err != nil {
@@ -129,7 +127,7 @@ func documentHasText(es *elastic.Client, url string) (bool, error) {
 }
 
 func updateActuacionWithText(es *elastic.Client, url, text string) error {
-	_, err := es.UpdateByQuery(documentType).
+	_, err := es.UpdateByQuery(shared.DocumentType).
 		Query(elastic.NewTermQuery("URL", url)).
 		Script(elastic.NewScript("ctx._source.text = params['t']").
 			Params(map[string]interface{}{"t": text})).

@@ -1,8 +1,8 @@
 package shared
 
 import (
-        "fmt" 
-        )
+	"fmt"
+)
 
 const FichaType = "ficha"
 const ActuacionType = "actuacion"
@@ -50,10 +50,15 @@ type Ficha struct {
 }
 
 func FichaID(expedienteID string) string {
-    return fmt.Sprintf("ficha %v", expedienteID)
+	return fmt.Sprintf("ficha %v", expedienteID)
 }
+
+func (ficha *Ficha) NumeroDeExpediente(separator string) string {
+	return fmt.Sprintf("%d%s%d", ficha.Numero, separator, ficha.Anio)
+}
+
 func (ficha *Ficha) Id() string {
-	return FichaID(fmt.Sprintf("%d-%d", ficha.Numero, ficha.Anio))
+	return FichaID(ficha.NumeroDeExpediente("-"))
 }
 
 type ActuacionesPage struct {
@@ -103,3 +108,10 @@ type Expediente struct {
 	Actuaciones []Actuacion
 }
 
+type Documento struct {
+	URL                string
+	ActuacionID        string `json:"actuacionId"`
+	NumeroDeExpediente string `json:"numeroDeExpediente"`
+	Type               int    `json:"type"`
+	Nombre             string `json:"nombre"`
+}

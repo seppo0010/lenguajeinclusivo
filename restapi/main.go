@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,16 @@ import (
 
 	"github.com/seppo0010/juscaba/shared"
 )
+
+type miniDocumento struct {
+	Nombre string `json:"nombre"`
+	URL    string
+}
+
+type actuacionWithDocumentos struct {
+	*shared.Actuacion
+	Documentos []*miniDocumento `json:"documentos"`
+}
 
 var es *elastic.Client
 
@@ -32,7 +43,7 @@ func main() {
 	router.Run("localhost:8080")
 }
 
-func doGetExpedienteByID(id string) (*shared.Ficha, error) {
+func getFichaByID(id string) (*shared.Ficha, error) {
 	obj, err := es.Get().
 		Index(shared.FichaType).
 		Type(shared.FichaType).
@@ -57,17 +68,113 @@ func doGetExpedienteByID(id string) (*shared.Ficha, error) {
 	}
 	return f, nil
 }
+
+func getExpedienteActuaciones(ficha *shared.Ficha) ([]*shared.Actuacion, error) {
+	res, err := es.Search(shared.ActuacionType).
+		Query(elastic.NewTermQuery("numeroDeExpediente", ficha.NumeroDeExpediente("/"))).
+        From(0).Size(10000).
+		Do(context.Background())
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":      err.Error(),
+			"expediente": ficha.NumeroDeExpediente("/"),
+		}).Error("failed to get actuaciones")
+		return nil, err
+	}
+
+	hits := res.Hits.Hits
+	actuaciones := make([]*shared.Actuacion, len(hits))
+	for i, h := range hits {
+		var actuacion *shared.Actuacion
+		err = json.Unmarshal(h.Source, &actuacion)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error":      err.Error(),
+				"expediente": ficha.NumeroDeExpediente("/"),
+			}).Error("failed to extract hit data")
+			return nil, err
+		}
+		actuaciones[i] = actuacion
+	}
+	return actuaciones, nil
+}
+
+func getActuacionesWithDocumentos(ficha *shared.Ficha, actuaciones []*shared.Actuacion) ([]*actuacionWithDocumentos, error) {
+	res, err := es.Search(shared.DocumentType).
+		Query(elastic.NewTermQuery("numeroDeExpediente", ficha.NumeroDeExpediente("/"))).
+        From(0).Size(10000).
+		Do(context.Background())
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":      err.Error(),
+			"expediente": ficha.NumeroDeExpediente("/"),
+		}).Error("failed to get actuaciones")
+		return nil, err
+	}
+
+	hits := res.Hits.Hits
+	documentsByActuacionID := map[string][]*shared.Documento{}
+	for _, h := range hits {
+		var documento *shared.Documento
+		err = json.Unmarshal(h.Source, &documento)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"hit":        fmt.Sprintf("%#v", h),
+				"error":      err.Error(),
+				"json":       string(h.Source),
+				"expediente": ficha.NumeroDeExpediente("/"),
+			}).Error("failed to extract hit data")
+			return nil, err
+		}
+		documentsByActuacionID[documento.ActuacionID] = append(
+			documentsByActuacionID[documento.ActuacionID],
+			documento,
+		)
+	}
+
+	awd := make([]*actuacionWithDocumentos, len(actuaciones))
+	for i, a := range actuaciones {
+		md := make([]*miniDocumento, len(documentsByActuacionID[a.Id()]))
+		for j, m := range documentsByActuacionID[a.Id()] {
+			md[j] = &miniDocumento{
+				Nombre: m.Nombre,
+				URL:    m.URL,
+			}
+		}
+		awd[i] = &actuacionWithDocumentos{
+			Actuacion:  a,
+			Documentos: md,
+		}
+	}
+	return awd, nil
+}
+
 func getExpedienteByID(c *gin.Context) {
 	id := c.Param("id")
 
-	expediente, err := doGetExpedienteByID(id)
+	ficha, err := getFichaByID(id)
 	if err != nil {
 		if elastic.IsNotFound(err) {
-			c.JSON(http.StatusNotFound, gin.H{"message": "expediente not found"})
+			c.JSON(http.StatusNotFound, gin.H{"message": "ficha not found"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "expediente not found"})
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting ficha"})
 		}
 		return
 	}
-	c.IndentedJSON(http.StatusOK, expediente)
+	actuaciones, err := getExpedienteActuaciones(ficha)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting actuaciones"})
+		return
+	}
+
+	awd, err := getActuacionesWithDocumentos(ficha, actuaciones)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting actuaciones' documents"})
+		return
+	}
+
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"ficha":       ficha,
+		"actuaciones": awd,
+	})
 }

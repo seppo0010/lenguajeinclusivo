@@ -53,6 +53,9 @@ const documentMapping = `
 	},
 	"mappings":{
 		"properties":{
+			"numeroDeExpediente":{
+				"type":"keyword"
+			},
 			"URL":{
 				"type":"keyword"
 			}
@@ -307,12 +310,12 @@ func insertDocument(es *elastic.Client, c *amqp.Channel, url string, ficha *shar
 		Type("_doc").
 		OpType("create").
 		Id(url).
-		BodyJson(map[string]interface{}{
-			"URL":                url,
-			"actuacionId":        actuacion.Id(),
-			"numeroDeExpediente": fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio),
-			"type":               typ,
-			"nombre":             nombre,
+		BodyJson(shared.Documento{
+			URL:                url,
+			ActuacionID:        actuacion.Id(),
+			NumeroDeExpediente: fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio),
+			Type:               typ,
+			Nombre:             nombre,
 		}).
 		Do(context.Background())
 

@@ -38,7 +38,7 @@ func main() {
 	}
 
 	router := gin.Default()
-	router.GET("/expediente/:id", getExpedienteByID)
+	router.GET("/api/expediente/:id", getExpedienteByID)
 
 	router.Run("localhost:8080")
 }

@@ -15,14 +15,6 @@ import (
 	"github.com/streadway/amqp"
 )
 
-const fichaType = "ficha"
-const actuacionType = "actuacion"
-const documentType = "document"
-const regularAttachment = 0
-const actuacionesNotificadasAttachment = 1
-const adjuntosAttachment = 1
-const cedulaAttachment = 2
-
 const actuacionMapping = `
 {
 	"settings":{
@@ -86,94 +78,6 @@ type SearchResult struct {
 	Content []SearchResultContent `json:"content"`
 }
 
-type FichaRadicaciones struct {
-	SecretariaPrimeraInstancia string `json:"secretariaPrimeraInstancia"`
-	OrganismoSegundaInstancia  string `json:"organismoSegundaInstancia"`
-	SecretariaSegundaInstancia string `json:"secretariaSegundaInstancia"`
-	OrganismoPrimeraInstancia  string `json:"organismoPrimeraInstancia"`
-}
-
-type FichaObjetosJuicio struct {
-	ObjetoJuicio string `json:"objetoJuicio"`
-	Categoria    string `json:"categoria"`
-	EsPrincipal  int    `json:"esPrincipal"`
-	Materia      string `json:"materia"`
-}
-
-type FichaUbicacion struct {
-	Organismo   string `json:"organismo"`
-	Dependencia string `json:"dependencia"`
-}
-type Ficha struct {
-	ExpId            int
-	Radicaciones     FichaRadicaciones    `json:"radicaciones"`
-	Numero           int                  `json:"numero"`
-	Anio             int                  `json:"anio"`
-	Sufijo           int                  `json:"sufijo"`
-	ObjetosJuicio    []FichaObjetosJuicio `json:"objetosJuicio"`
-	Ubicacion        FichaUbicacion       `json:"ubicacion"`
-	FechaInicio      int                  `json:"fechaInicio"`
-	UltimoMovimiento int                  `json:"ultimoMovimiento"`
-	TieneSentencia   int                  `json:"tieneSentencia"`
-	EsPrivado        int                  `json:"esPrivado"`
-	TipoExpediente   string               `json:"tipoExpediente"`
-	CUIJ             string               `json:"cuij"`
-	Caratula         string               `json:"caratula"`
-	Monto            float64              `json:"monto"`
-	Etiquetas        string               `json:"etiquetas"`
-}
-
-func (ficha *Ficha) Id() string {
-	return fmt.Sprintf("ficha %d-%d", ficha.Numero, ficha.Anio)
-}
-
-type ActuacionesPage struct {
-	TotalPages       int                     `json:"totalPages"`
-	TotalElements    int                     `json:"totalElements"`
-	NumberOfElements int                     `json:"numberOfElements"`
-	Last             bool                    `json:"last"`
-	First            bool                    `json:"first"`
-	Size             int                     `json:"size"`
-	Number           int                     `json:"number"`
-	Pageable         ActuacionesPagePageable `json:"pageable"`
-	Content          []Actuacion             `json:"content"`
-}
-
-type Actuacion struct {
-	EsCedula               int    `json:"esCedula"`
-	Codigo                 string `json:"codigo"`
-	ActuacionesNotificadas string `json:"actuacionesNotificadas"`
-	Numero                 int    `json:"numero"`
-	FechaFirma             int    `json:"fechaFirma"`
-	Firmantes              string `json:"firmantes"`
-	ActId                  int    `json:"actId"`
-	Titulo                 string `json:"titulo"`
-	FechaNotificacion      int    `json:"fechaNotificacion"`
-	PoseeAdjunto           int    `json:"poseeAdjunto"`
-	CUIJ                   string `json:"cuij"`
-	Anio                   int    `json:"anio"`
-}
-
-func (actuacion *Actuacion) Id() string {
-	return fmt.Sprintf("actuacion %d", actuacion.ActId)
-}
-
-type ActuacionWithExpediente struct {
-	Actuacion
-	NumeroDeExpediente string `json:"numeroDeExpediente"`
-}
-
-type ActuacionesPagePageable struct {
-	PageNumber int `json:"pageNumber"`
-	PageSize   int `json:"pageSize"`
-	Offset     int `json:"offset"`
-}
-
-type Expediente struct {
-	*Ficha
-	Actuaciones []Actuacion
-}
-
 func getExpedienteCandidates(criteria string) ([]int, error) {
 	filter, _ := json.Marshal(SearchFormFilter{
 		Identificador: criteria,
@@ -215,7 +119,7 @@ func getExpedienteCandidates(criteria string) ([]int, error) {
 	return res, nil
 }
 
-func getFicha(candidate int) (*Ficha, error) {
+func getFicha(candidate int) (*shared.Ficha, error) {
 	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/ficha?expId=%d", candidate)
 	resp, err := http.Get(u)
 	if err != nil {
@@ -227,7 +131,7 @@ func getFicha(candidate int) (*Ficha, error) {
 	}
 	defer resp.Body.Close()
 
-	ficha := Ficha{ExpId: candidate}
+	ficha := shared.Ficha{ExpId: candidate}
 	err = json.NewDecoder(resp.Body).Decode(&ficha)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -240,7 +144,7 @@ func getFicha(candidate int) (*Ficha, error) {
 	return &ficha, nil
 }
 
-func searchExpediente(criteria string) (*Expediente, error) {
+func searchExpediente(criteria string) (*shared.Expediente, error) {
 	candidates, err := getExpedienteCandidates(criteria)
 	if err != nil {
 		return nil, err
@@ -260,7 +164,7 @@ func searchExpediente(criteria string) (*Expediente, error) {
 			if err != nil {
 				return nil, err
 			}
-			return &Expediente{
+			return &shared.Expediente{
 				Ficha:       ficha,
 				Actuaciones: actuaciones,
 			}, nil
@@ -272,7 +176,7 @@ func searchExpediente(criteria string) (*Expediente, error) {
 	return nil, fmt.Errorf("cannot find ficha for criteria: %s", criteria)
 }
 
-func getActuacionesPage(expId int, pagenum int) (*ActuacionesPage, error) {
+func getActuacionesPage(expId int, pagenum int) (*shared.ActuacionesPage, error) {
 	log.WithFields(log.Fields{
 		"page": pagenum,
 	}).Info("getting actuaciones")
@@ -291,7 +195,7 @@ func getActuacionesPage(expId int, pagenum int) (*ActuacionesPage, error) {
 		}).Warn("Failed to get actuaciones")
 		return nil, err
 	}
-	page := ActuacionesPage{}
+	page := shared.ActuacionesPage{}
 	err = json.NewDecoder(res.Body).Decode(&page)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -305,8 +209,8 @@ func getActuacionesPage(expId int, pagenum int) (*ActuacionesPage, error) {
 	return &page, nil
 }
 
-func getActuaciones(expId int) ([]Actuacion, error) {
-	actuaciones := make([]Actuacion, 0, 1)
+func getActuaciones(expId int) ([]shared.Actuacion, error) {
+	actuaciones := make([]shared.Actuacion, 0, 1)
 	pagenum := 0
 	for {
 		page, err := getActuacionesPage(expId, pagenum)
@@ -322,7 +226,7 @@ func getActuaciones(expId int) ([]Actuacion, error) {
 	return actuaciones, nil
 }
 
-func insertAdjuntosCedula(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion) {
+func insertAdjuntosCedula(es *elastic.Client, c *amqp.Channel, url string, ficha *shared.Ficha, actuacion *shared.Actuacion) {
 	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/cedulas/adjuntos?filter=%%7B%%22cedulaCuij%%22:%%22%v%%22,%%22expId%%22:%v,%%22ministerios%%22:false%%7D",
 		actuacion.CUIJ,
 		ficha.ExpId,
@@ -352,10 +256,10 @@ func insertAdjuntosCedula(es *elastic.Client, c *amqp.Channel, url string, ficha
 			adjunto["adjuntoId"],
 			ficha.ExpId,
 		)
-		insertDocument(es, c, url, ficha, actuacion, cedulaAttachment, adjunto["adjuntoNombre"].(string))
+		insertDocument(es, c, url, ficha, actuacion, shared.CedulaAttachment, adjunto["adjuntoNombre"].(string))
 	}
 }
-func insertAdjuntosNoCedula(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion) {
+func insertAdjuntosNoCedula(es *elastic.Client, c *amqp.Channel, url string, ficha *shared.Ficha, actuacion *shared.Actuacion) {
 	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/adjuntos?actId=%v&expId=%v&accesoMinisterios=false",
 		actuacion.ActId,
 		ficha.ExpId,
@@ -385,11 +289,11 @@ func insertAdjuntosNoCedula(es *elastic.Client, c *amqp.Channel, url string, fic
 			adjunto["adjId"],
 			ficha.ExpId,
 		)
-		insertDocument(es, c, url, ficha, actuacion, adjuntosAttachment, adjunto["titulo"].(string))
+		insertDocument(es, c, url, ficha, actuacion, shared.AdjuntosAttachment, adjunto["titulo"].(string))
 	}
 }
 
-func insertAdjuntos(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion) {
+func insertAdjuntos(es *elastic.Client, c *amqp.Channel, url string, ficha *shared.Ficha, actuacion *shared.Actuacion) {
 	if actuacion.EsCedula == 1 {
 		insertAdjuntosCedula(es, c, url, ficha, actuacion)
 	} else {
@@ -397,9 +301,9 @@ func insertAdjuntos(es *elastic.Client, c *amqp.Channel, url string, ficha *Fich
 	}
 }
 
-func insertDocument(es *elastic.Client, c *amqp.Channel, url string, ficha *Ficha, actuacion *Actuacion, typ int, nombre string) {
+func insertDocument(es *elastic.Client, c *amqp.Channel, url string, ficha *shared.Ficha, actuacion *shared.Actuacion, typ int, nombre string) {
 	_, err := es.Index().
-		Index(documentType).
+		Index(shared.DocumentType).
 		Type("_doc").
 		OpType("create").
 		Id(url).
@@ -434,7 +338,7 @@ func insertDocument(es *elastic.Client, c *amqp.Channel, url string, ficha *Fich
 	}
 }
 
-func insertExpediente(es *elastic.Client, exp *Expediente) error {
+func insertExpediente(es *elastic.Client, exp *shared.Expediente) error {
 	var err error
 	var wg sync.WaitGroup
 	c, err := shared.InitTaskQueue("fetch")
@@ -446,8 +350,8 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 		"ficha": exp.Ficha.Id(),
 	}).Info("saving ficha")
 	_, err = es.Index().
-		Index(fichaType).
-		Type(fichaType).
+		Index(shared.FichaType).
+		Type(shared.FichaType).
 		Id(exp.Ficha.Id()).
 		BodyJson(exp.Ficha).
 		Do(context.Background())
@@ -460,7 +364,7 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 
 	for i, actuacion := range exp.Actuaciones {
 		wg.Add(1)
-		go func(i int, actuacion Actuacion) {
+		go func(i int, actuacion shared.Actuacion) {
 			defer wg.Done()
 			log.WithFields(log.Fields{
 				"ficha":     exp.Ficha.Id(),
@@ -472,11 +376,11 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 				exp.Ficha.ExpId,
 			)
 			_, innerErr := es.Index().
-				Index(actuacionType).
+				Index(shared.ActuacionType).
 				Type("_doc").
 				OpType("create").
 				Id(actuacion.Id()).
-				BodyJson(ActuacionWithExpediente{
+				BodyJson(shared.ActuacionWithExpediente{
 					Actuacion:          actuacion,
 					NumeroDeExpediente: fmt.Sprintf("%d/%d", exp.Ficha.Numero, exp.Ficha.Anio),
 				}).
@@ -488,7 +392,7 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 				}).Error(innerErr.Error())
 				return
 			}
-			insertDocument(es, c, url, exp.Ficha, &actuacion, regularAttachment, "")
+			insertDocument(es, c, url, exp.Ficha, &actuacion, shared.RegularAttachment, "")
 			if actuacion.ActuacionesNotificadas != "" {
 
 				insertDocument(es, c, fmt.Sprintf(
@@ -496,7 +400,7 @@ func insertExpediente(es *elastic.Client, exp *Expediente) error {
 					actuacion.ActuacionesNotificadas,
 					exp.ExpId,
 					actuacion.ActId,
-				), exp.Ficha, &actuacion, actuacionesNotificadasAttachment, "")
+				), exp.Ficha, &actuacion, shared.ActuacionesNotificadasAttachment, "")
 			}
 			if actuacion.PoseeAdjunto > 0 {
 				insertAdjuntos(es, c, url, exp.Ficha, &actuacion)
@@ -540,7 +444,7 @@ func waitForExpediente() (<-chan (string), error) {
 }
 
 func installMappings(es *elastic.Client) error {
-	exists, err := es.IndexExists(actuacionType).Do(context.Background())
+	exists, err := es.IndexExists(shared.ActuacionType).Do(context.Background())
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
@@ -548,7 +452,7 @@ func installMappings(es *elastic.Client) error {
 		return err
 	}
 	if !exists {
-		createIndex, err := es.CreateIndex(actuacionType).BodyString(actuacionMapping).Do(context.Background())
+		createIndex, err := es.CreateIndex(shared.ActuacionType).BodyString(actuacionMapping).Do(context.Background())
 		if err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),
@@ -560,7 +464,7 @@ func installMappings(es *elastic.Client) error {
 		}
 	}
 
-	exists, err = es.IndexExists(documentType).Do(context.Background())
+	exists, err = es.IndexExists(shared.DocumentType).Do(context.Background())
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
@@ -568,7 +472,7 @@ func installMappings(es *elastic.Client) error {
 		return err
 	}
 	if !exists {
-		createIndex, err := es.CreateIndex(documentType).BodyString(documentMapping).Do(context.Background())
+		createIndex, err := es.CreateIndex(shared.DocumentType).BodyString(documentMapping).Do(context.Background())
 		if err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),

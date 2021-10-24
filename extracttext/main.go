@@ -10,8 +10,9 @@ import (
 	"path"
 
 	"github.com/olivere/elastic/v7"
-	"github.com/seppo0010/juscaba/shared"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/seppo0010/juscaba/shared"
 )
 
 const documentType = "document"

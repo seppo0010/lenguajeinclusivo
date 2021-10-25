@@ -16,6 +16,7 @@ services:
     networks:
       - crawler-database
       - extracttext-database
+      - restapi-database
   queues:
     image: rabbitmq:3-management
     restart: on-failure
@@ -76,11 +77,33 @@ services:
     networks:
       - fetcher-minio
       - extracttext-minio
+      - restapi-minio
     secrets:
       - minio-user
       - minio-password
     volumes:
       - miniodata:/data
+  restapi:
+    build:
+      context: .
+      dockerfile: Dockerfile.restapi
+    secrets:
+      - minio-user
+      - minio-password
+    networks:
+      - restapi-database
+      - restapi-minio
+      - web
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    depends_on:
+      - "restapi"
+    ports:
+      - "8002:80"
+    networks:
+      - web
 
 secrets:
   minio-user:
@@ -96,6 +119,9 @@ networks:
   extracttext-queue:
   extracttext-minio:
   extracttext-database:
+  restapi-database:
+  restapi-minio:
+  web:
 
 volumes:
   esdata:

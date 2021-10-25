@@ -1,0 +1,14 @@
+FROM golang:1.17
+
+WORKDIR /go/src/app
+
+COPY restapi/go.mod restapi/go.sum ./
+COPY ./shared /go/src/shared
+RUN go mod download
+
+COPY ./restapi .
+
+RUN go get -d -v ./...
+RUN go install -v ./...
+
+CMD ["restapi"]

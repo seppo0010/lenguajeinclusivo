@@ -49,7 +49,8 @@ func main() {
 	router.GET("/api/expediente/:id", getExpedienteByID)
 	router.GET("/download/:hash", download)
 
-	router.Run("localhost:8080")
+	log.Print("ready for connections on port 8080")
+	router.Run("0.0.0.0:8080")
 }
 
 func getFichaByID(id string) (*shared.Ficha, error) {

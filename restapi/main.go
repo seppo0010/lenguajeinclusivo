@@ -300,6 +300,6 @@ func download(c *gin.Context) {
 		}).Error("failed to get object")
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
 	}
-	mimeType := "application/json" // FIXME: fetch api returns wrong type, inference?
+	mimeType := "application/pdf" // FIXME: fetch api returns wrong type, inference?
 	c.DataFromReader(http.StatusOK, stat.Size, mimeType, r, map[string]string{})
 }

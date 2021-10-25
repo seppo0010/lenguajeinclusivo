@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux'
-import { fetchExpediente, selectExpediente } from './expedienteSlice'
+import { fetchExpediente, fetchExpedienteSearch } from './expedienteSlice'
 import ActuacionView from './ActuacionView'
 import type { RootState } from './store'
 
 function Expediente({id}: {id: string}) {
   const dispatch = useDispatch()
-  const expediente = useSelector(selectExpediente)
-  const expedienteStatus  = useSelector((state: RootState) => state.expediente.status)
+
+  const [isSearch, setIsSearch] = useState(false)
+  const whichExpediente = isSearch ? 'search' : 'base'
+  const expediente = useSelector((state: RootState) => state.expediente[whichExpediente].expediente)
+  const expedienteStatus  = useSelector((state: RootState) => state.expediente[whichExpediente].status)
   const [firmantesFilter, setFirmantesFilter] = useState('')
+  const [searchCriteria, setSearchCriteria] = useState('')
 
   const firmantes = expediente?.actuaciones
     .map((a) => a.firmantes)
@@ -21,6 +25,11 @@ function Expediente({id}: {id: string}) {
     }
   }, [expedienteStatus, dispatch, id])
 
+  const search = () => {
+    dispatch(fetchExpedienteSearch({id, criteria: searchCriteria}))
+    setIsSearch(true)
+  }
+
   const actuaciones = expediente?.actuaciones.filter(
     (a) => a.firmantes === firmantesFilter || firmantesFilter === ''
   ) || []
@@ -30,6 +39,16 @@ function Expediente({id}: {id: string}) {
       {expediente &&
       <>
         <p>Expediente: {expediente?.ficha.caratula}</p>
+        <p>
+          <label>
+            Buscar:
+            <input type="text" value={searchCriteria} onChange={(e) => setSearchCriteria(e.target.value)} />
+          </label>
+          {isSearch ?
+            <button onClick={() => setIsSearch(false)}>Ver todos</button> :
+            <button onClick={() => search()}>Buscar</button>
+          }
+        </p>
         <p>
           <label>
             Firmantes:

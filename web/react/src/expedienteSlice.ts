@@ -1,8 +1,18 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import type { RootState } from './store'
 
 export const fetchExpediente = createAsyncThunk('expediente/get', async ({id}: {id: string}) => {
   const req = await fetch('/api/expediente/' + encodeURIComponent(id.replace('/', '-')))
+  const res = await req.json()
+  return res
+})
+
+export const fetchExpedienteSearch = createAsyncThunk('expediente/search', async ({id, criteria}: {id: string, criteria: string}) => {
+  let formData = new FormData()
+  formData.append("criteria", criteria)
+  const req = await fetch('/api/expediente/search/' + encodeURIComponent(id.replace('/', '-')), {
+    method: 'POST',
+    body: formData,
+  })
   const res = await req.json()
   return res
 })
@@ -24,10 +34,14 @@ export declare interface Actuacion {
   documentos: Documento[]
 }
 
-export interface State {
+export interface FetchState {
   expediente: Expediente | null
   status: 'idle' | 'succeeded' | 'loading' | 'failed'
   error: undefined | string
+}
+export interface State {
+  base: FetchState
+  search: FetchState
 }
 
 export interface Documento {
@@ -36,9 +50,16 @@ export interface Documento {
 }
 
 const initialState: State = {
-  expediente: null,
-  status: 'idle',
-  error: undefined,
+  base: {
+    expediente: null,
+    status: 'idle',
+    error: undefined,
+  },
+  search: {
+    expediente: null,
+    status: 'idle',
+    error: undefined,
+  },
 }
 
 const expedienteSlice = createSlice({
@@ -48,20 +69,30 @@ const expedienteSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder.addCase(fetchExpediente.pending, (state, action) => {
-      state.status = 'loading'
+      state.base.status = 'loading'
     })
     builder.addCase(fetchExpediente.fulfilled, (state, action) => {
-      state.status = 'succeeded'
-      state.expediente = action.payload
-      state.expediente?.actuaciones.sort((e1, e2) => - e1.fechaFirma + e2.fechaFirma)
+      state.base.status = 'succeeded'
+      state.base.expediente = action.payload
+      state.base.expediente?.actuaciones.sort((e1, e2) => - e1.fechaFirma + e2.fechaFirma)
     })
     builder.addCase(fetchExpediente.rejected, (state, action) => {
-      state.status = 'failed'
-      state.error = action.error.message
+      state.base.status = 'failed'
+      state.base.error = action.error.message
+    })
+    builder.addCase(fetchExpedienteSearch.pending, (state, action) => {
+      state.search.status = 'loading'
+    })
+    builder.addCase(fetchExpedienteSearch.fulfilled, (state, action) => {
+      state.search.status = 'succeeded'
+      state.search.expediente = action.payload
+      state.search.expediente?.actuaciones.sort((e1, e2) => - e1.fechaFirma + e2.fechaFirma)
+    })
+    builder.addCase(fetchExpedienteSearch.rejected, (state, action) => {
+      state.search.status = 'failed'
+      state.search.error = action.error.message
     })
   },
 })
-
-export const selectExpediente = (state: RootState) => state.expediente.expediente
 
 export default expedienteSlice.reducer

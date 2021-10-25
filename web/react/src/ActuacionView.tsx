@@ -9,7 +9,7 @@ function ActuacionView({actuacion}: {actuacion: Actuacion}) {
         <ul>
           {actuacion.documentos.map((d) => (
             <li key={d.URL}>
-              <a href={d.URL}>{d.nombre || 'Documento sin título'}</a>
+              <a target="_blank" rel="noreferrer" href={d.URL}>{d.nombre || 'Documento sin título'}</a>
             </li>
           ))}
         </ul>

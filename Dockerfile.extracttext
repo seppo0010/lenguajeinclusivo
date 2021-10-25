@@ -3,6 +3,7 @@ WORKDIR /go/src/app
 
 RUN apt-get update && apt-get install -y \
     poppler-utils \
+    tesseract-ocr-spa \
     && rm -rf /var/lib/apt/lists/*
 COPY extracttext/go.mod extracttext/go.sum ./
 COPY ./shared /go/src/shared

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux'
 import { fetchExpediente, selectExpediente } from './expedienteSlice'
+import ActuacionView from './ActuacionView'
 import type { RootState } from './store'
 
 function Expediente({id}: {id: string}) {
@@ -44,7 +45,7 @@ function Expediente({id}: {id: string}) {
         </p>
         {actuaciones && <ul>
           {actuaciones.map((act) => <li key={act.actId}>
-            {act.titulo} - {act.firmantes} ({new Date(act.fechaFirma).toString()})
+            <ActuacionView actuacion={act} />
           </li>)}
         </ul>}
       </>}

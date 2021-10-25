@@ -115,3 +115,7 @@ type Documento struct {
 	Type               int    `json:"type"`
 	Nombre             string `json:"nombre"`
 }
+
+func (d *Documento) GetURL() string {
+	return fmt.Sprintf("/download/%v", GetSha1(d.URL))
+}

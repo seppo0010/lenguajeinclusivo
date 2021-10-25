@@ -21,12 +21,18 @@ export declare interface Actuacion {
   titulo: string
   firmantes: string
   fechaFirma: number
+  documentos: Documento[]
 }
 
 export interface State {
   expediente: Expediente | null
   status: 'idle' | 'succeeded' | 'loading' | 'failed'
-  error: undefined | string,
+  error: undefined | string
+}
+
+export interface Documento {
+  URL: string
+  nombre: string
 }
 
 const initialState: State = {

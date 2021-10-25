@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
 	log "github.com/sirupsen/logrus"
+	"github.com/minio/minio-go/v7"
 
 	"github.com/seppo0010/juscaba/shared"
 )
@@ -24,6 +25,8 @@ type actuacionWithDocumentos struct {
 }
 
 var es *elastic.Client
+var minioClient *minio.Client
+const bucketName = "pdfs"
 
 func main() {
 	var err error
@@ -37,8 +40,14 @@ func main() {
 		}).Fatal("Failed to connect to elastic")
 	}
 
+	minioClient, err = shared.GetMinioClient(bucketName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	router := gin.Default()
 	router.GET("/api/expediente/:id", getExpedienteByID)
+	router.GET("/download/:hash", download)
 
 	router.Run("localhost:8080")
 }
@@ -138,7 +147,7 @@ func getActuacionesWithDocumentos(ficha *shared.Ficha, actuaciones []*shared.Act
 		for j, m := range documentsByActuacionID[a.Id()] {
 			md[j] = &miniDocumento{
 				Nombre: m.Nombre,
-				URL:    m.URL,
+				URL:    m.GetURL(),
 			}
 		}
 		awd[i] = &actuacionWithDocumentos{
@@ -177,4 +186,26 @@ func getExpedienteByID(c *gin.Context) {
 		"ficha":       ficha,
 		"actuaciones": awd,
 	})
+}
+
+func download(c *gin.Context) {
+	hash := c.Param("hash")
+	stat, err := minioClient.StatObject(context.Background(), bucketName, hash, minio.StatObjectOptions{})
+	if err != nil {
+		if err.Error() == "The specified key does not exist." {
+			c.JSON(http.StatusNotFound, gin.H{"message": "document not found"})
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
+	}
+	r, err := minioClient.GetObject(context.Background(), bucketName, hash, minio.StatObjectOptions{})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+			"hash": hash,
+		}).Error("failed to get object")
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+	}
+	mimeType := "application/json" // FIXME: fetch api returns wrong type, inference?
+	c.DataFromReader(http.StatusOK, stat.Size, mimeType, r, map[string]string{})
 }

@@ -7,9 +7,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/minio/minio-go/v7"
 	"github.com/olivere/elastic/v7"
 	log "github.com/sirupsen/logrus"
-	"github.com/minio/minio-go/v7"
 
 	"github.com/seppo0010/juscaba/shared"
 )
@@ -26,6 +26,7 @@ type actuacionWithDocumentos struct {
 
 var es *elastic.Client
 var minioClient *minio.Client
+
 const bucketName = "pdfs"
 
 func main() {
@@ -47,6 +48,7 @@ func main() {
 
 	router := gin.Default()
 	router.GET("/api/expediente/:id", getExpedienteByID)
+	router.POST("/api/expediente/search/:id", searchExpediente)
 	router.GET("/download/:hash", download)
 
 	log.Print("ready for connections on port 8080")
@@ -79,19 +81,8 @@ func getFichaByID(id string) (*shared.Ficha, error) {
 	return f, nil
 }
 
-func getExpedienteActuaciones(ficha *shared.Ficha) ([]*shared.Actuacion, error) {
-	res, err := es.Search(shared.ActuacionType).
-		Query(elastic.NewTermQuery("numeroDeExpediente", ficha.NumeroDeExpediente("/"))).
-        From(0).Size(10000).
-		Do(context.Background())
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error":      err.Error(),
-			"expediente": ficha.NumeroDeExpediente("/"),
-		}).Error("failed to get actuaciones")
-		return nil, err
-	}
-
+func parseActuacionesHits(ficha *shared.Ficha, res *elastic.SearchResult) ([]*shared.Actuacion, error) {
+	var err error
 	hits := res.Hits.Hits
 	actuaciones := make([]*shared.Actuacion, len(hits))
 	for i, h := range hits {
@@ -108,11 +99,10 @@ func getExpedienteActuaciones(ficha *shared.Ficha) ([]*shared.Actuacion, error) 
 	}
 	return actuaciones, nil
 }
-
-func getActuacionesWithDocumentos(ficha *shared.Ficha, actuaciones []*shared.Actuacion) ([]*actuacionWithDocumentos, error) {
-	res, err := es.Search(shared.DocumentType).
+func getExpedienteActuaciones(ficha *shared.Ficha) ([]*shared.Actuacion, error) {
+	res, err := es.Search(shared.ActuacionType).
 		Query(elastic.NewTermQuery("numeroDeExpediente", ficha.NumeroDeExpediente("/"))).
-        From(0).Size(10000).
+		From(0).Size(10000).
 		Do(context.Background())
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -122,6 +112,11 @@ func getActuacionesWithDocumentos(ficha *shared.Ficha, actuaciones []*shared.Act
 		return nil, err
 	}
 
+	return parseActuacionesHits(ficha, res)
+}
+
+func parseElasticDocumentos(ficha *shared.Ficha, res *elastic.SearchResult) (map[string][]*shared.Documento, error) {
+	var err error
 	hits := res.Hits.Hits
 	documentsByActuacionID := map[string][]*shared.Documento{}
 	for _, h := range hits {
@@ -141,7 +136,45 @@ func getActuacionesWithDocumentos(ficha *shared.Ficha, actuaciones []*shared.Act
 			documento,
 		)
 	}
+	return documentsByActuacionID, nil
+}
 
+func searchDocumentos(ficha *shared.Ficha, criteria string) (map[string][]*shared.Documento, error) {
+	query := elastic.NewBoolQuery()
+	query.Must(elastic.NewTermQuery("numeroDeExpediente", ficha.NumeroDeExpediente("/")))
+	query.Must(elastic.NewQueryStringQuery(criteria).DefaultField("text"))
+
+	res, err := es.Search(shared.DocumentType).
+		Query(query).
+		From(0).Size(10000).
+		Do(context.Background())
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":      err.Error(),
+			"expediente": ficha.NumeroDeExpediente("/"),
+		}).Error("failed to search actuaciones")
+		return nil, err
+	}
+
+	return parseElasticDocumentos(ficha, res)
+}
+
+func getAllDocumentos(ficha *shared.Ficha) (map[string][]*shared.Documento, error) {
+	res, err := es.Search(shared.DocumentType).
+		Query(elastic.NewTermQuery("numeroDeExpediente", ficha.NumeroDeExpediente("/"))).
+		From(0).Size(10000).
+		Do(context.Background())
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":      err.Error(),
+			"expediente": ficha.NumeroDeExpediente("/"),
+		}).Error("failed to get actuaciones")
+		return nil, err
+	}
+	return parseElasticDocumentos(ficha, res)
+}
+
+func getActuacionesWithDocumentos(ficha *shared.Ficha, actuaciones []*shared.Actuacion, documentsByActuacionID map[string][]*shared.Documento) ([]*actuacionWithDocumentos, error) {
 	awd := make([]*actuacionWithDocumentos, len(actuaciones))
 	for i, a := range actuaciones {
 		md := make([]*miniDocumento, len(documentsByActuacionID[a.Id()]))
@@ -177,11 +210,71 @@ func getExpedienteByID(c *gin.Context) {
 		return
 	}
 
-	awd, err := getActuacionesWithDocumentos(ficha, actuaciones)
+	documentsByActuacionID, err := getAllDocumentos(ficha)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting documentos"})
+		return
+	}
+
+	awd, err := getActuacionesWithDocumentos(ficha, actuaciones, documentsByActuacionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting actuaciones' documents"})
 		return
 	}
+
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"ficha":       ficha,
+		"actuaciones": awd,
+	})
+}
+
+func filterActuacionesWithoutDocumentos(awd []*actuacionWithDocumentos) []*actuacionWithDocumentos {
+	res := make([]*actuacionWithDocumentos, 0, len(awd))
+	for _, a := range awd {
+		if len(a.Documentos) > 0 {
+			res = append(res, a)
+		}
+	}
+	return res
+}
+
+func searchExpediente(c *gin.Context) {
+	id := c.Param("id")
+	criteria := c.PostForm("criteria")
+	log.WithFields(log.Fields{
+		"id":       id,
+		"criteria": criteria,
+	}).Print("searching")
+
+	ficha, err := getFichaByID(id)
+	if err != nil {
+		if elastic.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"message": "ficha not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting ficha"})
+		}
+		return
+	}
+
+	actuaciones, err := getExpedienteActuaciones(ficha)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting actuaciones"})
+		return
+	}
+
+	documentsByActuacionID, err := searchDocumentos(ficha, criteria)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting documentos"})
+		return
+	}
+
+	awd, err := getActuacionesWithDocumentos(ficha, actuaciones, documentsByActuacionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting actuaciones' documents"})
+		return
+	}
+
+	awd = filterActuacionesWithoutDocumentos(awd)
 
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"ficha":       ficha,
@@ -203,7 +296,7 @@ func download(c *gin.Context) {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-			"hash": hash,
+			"hash":  hash,
 		}).Error("failed to get object")
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
 	}

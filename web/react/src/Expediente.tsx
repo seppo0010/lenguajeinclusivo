@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux'
-import { fetchExpediente, fetchExpedienteSearch } from './expedienteSlice'
+import { fetchExpediente, fetchExpedienteSearch, clearSearch } from './expedienteSlice'
 import ActuacionView from './ActuacionView'
 import type { RootState } from './store'
 
@@ -30,6 +30,11 @@ function Expediente({id}: {id: string}) {
     setIsSearch(true)
   }
 
+  const doClearSearch = () => {
+    dispatch(clearSearch())
+    setIsSearch(false)
+  }
+
   const actuaciones = expediente?.actuaciones.filter(
     (a) => a.firmantes === firmantesFilter || firmantesFilter === ''
   ) || []
@@ -45,7 +50,7 @@ function Expediente({id}: {id: string}) {
             <input type="text" value={searchCriteria} onChange={(e) => setSearchCriteria(e.target.value)} />
           </label>
           {isSearch ?
-            <button onClick={() => setIsSearch(false)}>Ver todos</button> :
+            <button onClick={() => doClearSearch()}>Ver todos</button> :
             <button onClick={() => search()}>Buscar</button>
           }
         </p>
@@ -71,5 +76,6 @@ function Expediente({id}: {id: string}) {
     </div>
   );
 }
+
 
 export default Expediente;

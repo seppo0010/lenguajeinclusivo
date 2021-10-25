@@ -66,6 +66,11 @@ const expedienteSlice = createSlice({
   name: 'expediente',
   initialState,
   reducers: {
+    clearSearch(state) {
+      state.search.status = 'idle'
+      state.search.expediente = null
+      state.search.error = undefined
+    }
   },
   extraReducers: (builder) => {
     builder.addCase(fetchExpediente.pending, (state, action) => {
@@ -82,6 +87,8 @@ const expedienteSlice = createSlice({
     })
     builder.addCase(fetchExpedienteSearch.pending, (state, action) => {
       state.search.status = 'loading'
+      state.search.expediente = null
+      state.search.error = undefined
     })
     builder.addCase(fetchExpedienteSearch.fulfilled, (state, action) => {
       state.search.status = 'succeeded'
@@ -95,4 +102,5 @@ const expedienteSlice = createSlice({
   },
 })
 
+export const { clearSearch } = expedienteSlice.actions
 export default expedienteSlice.reducer

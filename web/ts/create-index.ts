@@ -4,12 +4,13 @@ import * as path from 'path';
 const { StringDecoder } = require('string_decoder');
 const decoder = new StringDecoder('utf8');
 
-const DATADIR = '../data';
+const DATADIR = '../../data';
 
 const JSONSlice = (buf, s, e) => {
   const json = decoder.write(buf.slice(s, e))
   return JSON.parse(json)
 }
+
 const importJSONArray = async (ms, f) => {
   const buf = await fs.readFile(f)
   let j = 0;
@@ -27,12 +28,23 @@ const importJSONArray = async (ms, f) => {
 
 const run = async () => {
   const ms = new MiniSearch({
-    fields: ['text', 'URL'],
-    storeFields: ['text', 'URL', 'actuacionId'],
+    fields: ['content', 'URL'],
+    storeFields: ['content', 'URL', 'ExpId'],
     idField: 'numeroDeExpediente'
   });
 
-  await importJSONArray(ms, path.join(DATADIR, 'document.json'))
+  const buf = await fs.readFile(path.join(DATADIR, 'a.json'));
+  const { Actuaciones, numero, anio, cuij, ...expediente } = JSON.parse(decoder.write(buf));
+  expediente.data = { numero, anio, cuij };
+
+  for (let i = 0; i < Actuaciones.length; i++) {
+    const { documentos, ...actuacion } = Actuaciones[i];
+    for (let j = 0; j < documentos.length; j++) {
+      let d = { ...expediente, ...actuacion, ...documentos[j] };
+      ms.add(d);
+    }
+  }
+
   await fs.writeFile('index.json', JSON.stringify(ms.toJSON()))
 }
 run()

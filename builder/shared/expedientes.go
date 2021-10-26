@@ -77,7 +77,7 @@ type Actuacion struct {
 	EsCedula               int          `json:"esCedula"`
 	Codigo                 string       `json:"codigo"`
 	ActuacionesNotificadas string       `json:"actuacionesNotificadas"`
-	Numero                 int          `json:"numero"`
+	Numero                 int          `json:"-"`
 	FechaFirma             int          `json:"fechaFirma"`
 	Firmantes              string       `json:"firmantes"`
 	ActId                  int          `json:"actId"`
@@ -85,7 +85,7 @@ type Actuacion struct {
 	FechaNotificacion      int          `json:"fechaNotificacion"`
 	PoseeAdjunto           int          `json:"poseeAdjunto"`
 	CUIJ                   string       `json:"cuij"`
-	Anio                   int          `json:"anio"`
+	Anio                   int          `json:"-"`
 	Documentos             []*Documento `json:"documentos"`
 }
 

@@ -70,22 +70,23 @@ type ActuacionesPage struct {
 	Size             int                     `json:"size"`
 	Number           int                     `json:"number"`
 	Pageable         ActuacionesPagePageable `json:"pageable"`
-	Content          []Actuacion             `json:"content"`
+	Content          []*Actuacion            `json:"content"`
 }
 
 type Actuacion struct {
-	EsCedula               int    `json:"esCedula"`
-	Codigo                 string `json:"codigo"`
-	ActuacionesNotificadas string `json:"actuacionesNotificadas"`
-	Numero                 int    `json:"numero"`
-	FechaFirma             int    `json:"fechaFirma"`
-	Firmantes              string `json:"firmantes"`
-	ActId                  int    `json:"actId"`
-	Titulo                 string `json:"titulo"`
-	FechaNotificacion      int    `json:"fechaNotificacion"`
-	PoseeAdjunto           int    `json:"poseeAdjunto"`
-	CUIJ                   string `json:"cuij"`
-	Anio                   int    `json:"anio"`
+	EsCedula               int          `json:"esCedula"`
+	Codigo                 string       `json:"codigo"`
+	ActuacionesNotificadas string       `json:"actuacionesNotificadas"`
+	Numero                 int          `json:"numero"`
+	FechaFirma             int          `json:"fechaFirma"`
+	Firmantes              string       `json:"firmantes"`
+	ActId                  int          `json:"actId"`
+	Titulo                 string       `json:"titulo"`
+	FechaNotificacion      int          `json:"fechaNotificacion"`
+	PoseeAdjunto           int          `json:"poseeAdjunto"`
+	CUIJ                   string       `json:"cuij"`
+	Anio                   int          `json:"anio"`
+	Documentos             []*Documento `json:"documentos"`
 }
 
 func (actuacion *Actuacion) Id() string {
@@ -105,7 +106,7 @@ type ActuacionesPagePageable struct {
 
 type Expediente struct {
 	*Ficha
-	Actuaciones []Actuacion
+	Actuaciones []*Actuacion
 }
 
 type Documento struct {
@@ -114,6 +115,7 @@ type Documento struct {
 	NumeroDeExpediente string `json:"numeroDeExpediente"`
 	Type               int    `json:"type"`
 	Nombre             string `json:"nombre"`
+	Content            string `json:"content"`
 }
 
 func (d *Documento) GetURL() string {

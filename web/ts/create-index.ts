@@ -6,26 +6,6 @@ const decoder = new StringDecoder('utf8');
 
 const DATADIR = '../../data';
 
-const JSONSlice = (buf, s, e) => {
-  const json = decoder.write(buf.slice(s, e))
-  return JSON.parse(json)
-}
-
-const importJSONArray = async (ms, f) => {
-  const buf = await fs.readFile(f)
-  let j = 0;
-  let json = '';
-  for (var i = 0; i < buf.length; ++i) {
-    if (buf[i] === '\n'.charCodeAt(0)) {
-      ms.add(JSONSlice(buf, j, i)._source)
-      j = i;
-    }
-  }
-  if (i - j > 10) {
-    ms.add(JSONSlice(buf, j, i)._source)
-  }
-}
-
 const run = async () => {
   const ms = new MiniSearch({
     fields: ['content', 'URL'],

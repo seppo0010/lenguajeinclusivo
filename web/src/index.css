@@ -1,0 +1,60 @@
+.App {
+    margin: auto;
+    max-width: 800px;
+    min-width: 600px;
+}
+img#isologotipo {
+    height: 128px;
+    width: 96px;
+    float: right;
+    margin: 0 0 40px 40px;
+}
+h1 {
+    font: bold 42px/68px 'Raleway Heavy';
+    padding: 0;
+    margin: 0;
+    color: #bdd2ce;
+}
+h1 img {
+    font-height: 42px;
+    height: 42px;
+}
+h2 {
+    font: bold 36px/120% 'Raleway Heavy';
+    text-decoration: underline;
+    padding: 0;
+    margin:  0 0 40px 0;
+}
+p {
+    font: 14px Merriweather;
+}
+div.color {
+    padding: 20px;
+    float: left;
+    margin: 0 30px 20px 0;
+    width: calc(100%/3 - 30px - 40px);
+    text-align: center;
+    height: 30px;
+    line-height: 30px;
+    font-size: 16px;
+}
+div#color1 { background: #333333; }
+div#color2 { background: #403136; }
+div#color3 { background: #ce342c; }
+div#color4 { background: #feead1; color: black; }
+div#color5 { background: #007a83; border: 4px solid #333; padding: 16px; }
+div#color6 { background: #bdd2ce; color: black; }
+
+
+body {
+    margin: 0;
+    font: 14px Merriweather;
+    background: #feead1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}

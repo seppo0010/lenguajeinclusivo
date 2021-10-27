@@ -34,18 +34,22 @@ function App() {
   }
 
   useEffect(() => {
-    fetch(`${process.env.PUBLIC_URL}/data/expedientes.json`)
-      .then(resp => resp.json())
-      .then(setExpedientes)
+    (async () => {
+      const res = await fetch(`${process.env.PUBLIC_URL}/data/expedientes.json`);
+      const json = await res.json();
+      setExpedientes(json)
+    })();
   }, [])
 
   useEffect(() => {
     if (!expedientes.length) return;
-    for (let i = 0; i < expedientes.length; i++) {
-      fetch(`${process.env.PUBLIC_URL}/data/${expedientes[i].file}.json`)
-        .then(resp => resp.json())
-        .then(d => setData({ ...data, [d.ExpId]: d }))
-    }
+    (async () => {
+      for (let i = 0; i < expedientes.length; i++) {
+        const res = await fetch(`${process.env.PUBLIC_URL}/data/${expedientes[i].file}.json`)
+        const json = await res.json();
+        setData({ ...data, [json.ExpId]: json })
+      }
+    })()
   }, [expedientes])
 
   return (

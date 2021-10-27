@@ -9,7 +9,6 @@ export interface ExpedienteData {
 }
 
 function Expediente(props: ExpedienteData) {
-  console.error('render', props)
   return (
     <Section title={props.caratula}>
       {

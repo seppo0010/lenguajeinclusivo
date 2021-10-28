@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"os"
 
-	crawler "github.com/seppo0010/juscaba/crawler"
-	extracttext "github.com/seppo0010/juscaba/extracttext"
-	fetcher "github.com/seppo0010/juscaba/fetcher"
-	shared "github.com/seppo0010/juscaba/shared"
+	crawler "github.com/odia/juscaba/crawler"
+	extracttext "github.com/odia/juscaba/extracttext"
+	fetcher "github.com/odia/juscaba/fetcher"
+	shared "github.com/odia/juscaba/shared"
 	log "github.com/sirupsen/logrus"
 )
 

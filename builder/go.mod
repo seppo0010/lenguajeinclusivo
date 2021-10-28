@@ -1,4 +1,4 @@
-module github.com/seppo0010/juscaba
+module github.com/odia/juscaba
 
 go 1.17
 

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/seppo0010/juscaba/shared"
+	"github.com/odia/juscaba/shared"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/seppo0010/juscaba/shared"
+	"github.com/odia/juscaba/shared"
 	log "github.com/sirupsen/logrus"
 )
 

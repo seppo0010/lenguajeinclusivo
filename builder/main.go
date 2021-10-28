@@ -66,11 +66,6 @@ func main() {
 				continue
 			}
 			fetcher.Download(fm, doc.URL)
-		}
-	}
-	for _, act := range exp.Actuaciones {
-		for _, doc := range act.Documentos {
-			fetcher.Download(fm, doc.URL)
 			reader, err := fm.GetReader(doc.URL)
 			if err != nil {
 				continue

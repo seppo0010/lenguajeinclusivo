@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 
@@ -11,10 +12,42 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func readBlacklist(path string) (map[string]bool, error) {
+	res := map[string]bool{}
+	file, err := os.Open(path)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+			"path":  path,
+		}).Error("failed to read blacklist file")
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		res[scanner.Text()] = true
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+			"path":  path,
+		}).Error("failed to scan blacklist file")
+		return nil, err
+	}
+	return res, nil
+}
+
 func main() {
+	blacklistPath := os.Args[4]
 	jsonPath := os.Args[3]
 	fm := &shared.FileManager{Directory: os.Args[2]}
 	exp, err := crawler.GetExpediente(os.Args[1])
+	if err != nil {
+		os.Exit(1)
+	}
+	blacklist, err := readBlacklist(blacklistPath)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -25,6 +58,13 @@ func main() {
 
 	for _, act := range exp.Actuaciones {
 		for _, doc := range act.Documentos {
+			skip, _ := blacklist[doc.URL]
+			if skip {
+				log.WithFields(log.Fields{
+					"url": doc.URL,
+				}).Info("skipping blacklisted URL")
+				continue
+			}
 			fetcher.Download(fm, doc.URL)
 		}
 	}

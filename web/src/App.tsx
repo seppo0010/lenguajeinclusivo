@@ -5,32 +5,16 @@ import Box from './Box';
 import Section from './Section';
 import Button from './Button';
 
-import Expediente, { ExpedienteData } from './Expediente';
-
-interface ExpedienteURL {
-  id: string
-  file: string
-  selected: boolean
-}
-
-interface ExpDataMap {
-  [id: string]: ExpedienteData
-}
+import { ExpedienteURL, ExpedienteLoader } from './Expediente';
 
 function App() {
   const [search, setSearch] = useState("");
   const [expedientes, setExpedientes] = useState<ExpedienteURL[]>([]);
-  const [data, setData] = useState<ExpDataMap>();
-  const [selected, setSelected] = useState<ExpedienteData>();
+  const [selected, setSelected] = useState<ExpedienteURL>();
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
     setSearch(event.target.value)
-  }
-
-  const handleSelect = (e: ExpedienteData) => (event: React.MouseEvent<HTMLLinkElement>) => {
-    event.preventDefault();
-    setSelected(e)
   }
 
   useEffect(() => {
@@ -46,8 +30,6 @@ function App() {
     (async () => {
       for (let i = 0; i < expedientes.length; i++) {
         const res = await fetch(`${process.env.PUBLIC_URL}/data/${expedientes[i].file}.json`)
-        const json = await res.json();
-        setData({ ...data, [json.ExpId]: json })
       }
     })()
   }, [expedientes])
@@ -58,15 +40,15 @@ function App() {
         <h1>Buscador de Actuaciones de O.D.I.A.</h1>
       </Box>
       <Section title="expedientes">
-        {(expedientes.length && data)
+        {(expedientes.length)
           ? expedientes.map(({ id }, i) =>
             <Button key={i}
-              onClick={(e: React.MouseEvent<HTMLElement>) => setSelected(data[id])}
-              selected={selected === data[i]}>
+              onClick={(e: React.MouseEvent<HTMLElement>) => setSelected(expedientes[i])}
+              selected={selected === expedientes[i]}>
               {id}
             </Button>)
           : <p>loading...</p>}
-        {selected !== undefined && <Expediente {...selected} />}
+        {selected !== undefined && <ExpedienteLoader {...selected} />}
       </Section>
       <div title="buscar">
         <input type="search" id="search-input" name="search"

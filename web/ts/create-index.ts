@@ -7,9 +7,10 @@ const decoder = new StringDecoder('utf8');
 const DATADIR = '../../data';
 
 const run = async () => {
+  // FIXME: duplicates Expediente.tsx
   const ms = new MiniSearch({
     fields: ['content', 'URL'],
-    storeFields: ['content', 'URL', 'ExpId'],
+    storeFields: ['content', 'URL', 'ExpId', 'actId'],
     idField: 'numeroDeExpediente'
   });
 

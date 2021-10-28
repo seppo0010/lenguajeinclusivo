@@ -1,0 +1,9 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" id="svg6380" version="1.1" viewBox="0 0 36.972523 36.972523" height="36.9725227355957" width="36.9725227355957">
+  <g transform="translate(-227.19826,-327.65064)" id="layer1">
+    <g transform="matrix(0.35277777,0,0,-0.35277777,245.68452,354.67483)" id="g6224">
+      <path id="path6226" style="fill:#403136;fill-opacity:1;fill-rule:nonzero;stroke:none" d="m 0,0 c -13.366,0 -24.202,10.835 -24.202,24.202 0,13.366 10.836,24.201 24.202,24.201 13.366,0 24.202,-10.835 24.202,-24.201 C 24.202,10.835 13.366,0 0,0 m 0,76.604 c -28.941,0 -52.402,-23.461 -52.402,-52.402 V -28.2 H 0 c 28.941,0 52.402,23.461 52.402,52.402 v 52.402 z"/>
+    </g>
+  </g>
+</svg>

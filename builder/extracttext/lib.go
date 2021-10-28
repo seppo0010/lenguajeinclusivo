@@ -1,8 +1,6 @@
-package main
+package crawler
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,10 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/olivere/elastic/v7"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/seppo0010/juscaba/shared"
 )
 
 func writeToTempFile(r io.Reader) (string, string, error) {
@@ -192,159 +187,21 @@ func getDocumentImagesText(dir, p string) (string, error) {
 	return text, nil
 }
 
-func getDocumentText(r io.Reader) (string, error) {
+func GetDocumentText(r io.Reader) (string, error) {
 	dir, p, err := writeToTempFile(r)
 	defer os.RemoveAll(dir)
 	if err != nil {
 		return "", err
 	}
-	log.WithFields(log.Fields{}).Info("getting pdf plain text")
+	log.Info("getting pdf plain text")
 	text, err := getDocumentPlainText(p)
 	if err != nil {
 		return "", err
 	}
-	log.WithFields(log.Fields{}).Info("getting pdf images text")
+	log.Info("getting pdf images text")
 	text2, err := getDocumentImagesText(dir, p)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%s\n%s", text, text2), nil
-}
-func documentHasText(es *elastic.Client, url string) (bool, error) {
-	res, err := es.Search(shared.DocumentType).
-		Query(elastic.NewTermQuery("URL", url)).
-		Do(context.Background())
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-			"url":   url,
-		}).Error("failed to check for text")
-		return false, err
-	}
-
-	hits := res.Hits.Hits
-	if len(hits) == 0 {
-		log.WithFields(log.Fields{
-			"url": url,
-		}).Warn("extracting text from unknown url")
-		return true, nil
-	}
-	if len(hits) > 1 {
-		log.WithFields(log.Fields{
-			"url": url,
-		}).Warn("more than one document with the same URL found")
-		return true, nil
-	}
-	var t struct {
-		Text string `json:"text"`
-	}
-	err = json.Unmarshal(hits[0].Source, &t)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("failed to extract hit text")
-		return false, err
-	}
-	return t.Text != "", nil
-}
-
-func updateActuacionWithText(es *elastic.Client, url, text string) error {
-	_, err := es.UpdateByQuery(shared.DocumentType).
-		Query(elastic.NewTermQuery("URL", url)).
-		Script(elastic.NewScript("ctx._source.text = params['t']").
-			Params(map[string]interface{}{"t": text})).
-		Do(context.Background())
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("Failed to update query")
-		return err
-	}
-	return nil
-}
-
-func readFiles(paths []string) {
-	log.WithFields(log.Fields{
-		"files": paths,
-	}).Info("reading files")
-	for _, arg := range paths {
-		reader, err := os.Open(arg)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error":    err.Error(),
-				"filename": arg,
-			}).Error("error reading document text")
-			continue
-		}
-		text, err := getDocumentText(reader)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error":    err.Error(),
-				"filename": arg,
-			}).Error("error reading document text")
-			continue
-		}
-		log.WithFields(log.Fields{
-			"filename": arg,
-			"text":     text,
-		}).Print("text")
-	}
-}
-
-func main() {
-	if len(os.Args) > 1 {
-		readFiles(os.Args[1:])
-		return
-	}
-	bucketName := "pdfs"
-	minioClient, err := shared.GetMinioClient(bucketName)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Fatal("Connect to minio")
-	}
-
-	es, err := elastic.NewClient(
-		elastic.SetURL("http://es:9200"),
-		elastic.SetSniff(false),
-	)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Fatal("Failed to connect to elastic")
-	}
-
-	urls, err := shared.WaitForTasks("index", "indexer")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	log.Info("waiting for urls")
-	for urlBytes := range urls {
-		url := string(urlBytes)
-		log.WithFields(log.Fields{
-			"url": url,
-		}).Info("Received")
-		hasText, _ := documentHasText(es, url)
-		if hasText {
-			log.WithFields(log.Fields{
-				"url": url,
-			}).Info("Skipping")
-			continue
-		}
-		reader, err := shared.GetURLContent(url, minioClient, bucketName)
-		if err != nil {
-			continue
-		}
-		text, err := getDocumentText(reader)
-		if err != nil {
-			continue
-		}
-		err = updateActuacionWithText(es, url, text)
-		if err != nil {
-			continue
-		}
-		log.WithFields(log.Fields{
-			"url": url,
-		}).Info("updated")
-	}
 }

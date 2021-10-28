@@ -13,7 +13,7 @@ export interface ActuacionData {
 function Actuacion(props: React.PropsWithChildren<ActuacionData>) {
   return (
     <Section title={props.titulo}>
-      {props.documentos.map((d) => <Document key={d.URL} />)}
+      {props.documentos.map((d) => <Document key={d.URL} {...d} />)}
     </Section>
   )
 }

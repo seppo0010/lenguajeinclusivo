@@ -1,6 +1,7 @@
 const MiniSearch = require('minisearch');
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as process from 'process';
 const { StringDecoder } = require('string_decoder');
 const decoder = new StringDecoder('utf8');
 
@@ -13,7 +14,7 @@ const run = async () => {
     idField: 'numeroDeExpediente'
   });
 
-  const buf = await fs.readFile(path.join(DATADIR, 'a.json'));
+  const buf = await fs.readFile(process.argv[2]);
   const { Actuaciones, numero, anio, cuij, ...expediente } = JSON.parse(decoder.write(buf));
   expediente.data = { numero, anio, cuij };
 
@@ -25,6 +26,6 @@ const run = async () => {
     }
   }
 
-  await fs.writeFile('index.json', JSON.stringify(ms.toJSON()))
+  await fs.writeFile(process.argv[3], JSON.stringify(ms.toJSON()))
 }
 run()

@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as process from 'process';
 const MiniSearch = require('minisearch');
 const MiniSearchConfig = require('../src/minisearch.config');
 
@@ -11,7 +12,7 @@ const DATADIR = '../public/data';
 const run = async () => {
   const ms = new MiniSearch(MiniSearchConfig.main);
 
-  const buf = await fs.readFile(path.join(DATADIR, 'a.json'));
+  const buf = await fs.readFile(process.argv[2]);
   const { Actuaciones, numero, anio, cuij, ...expediente } = JSON.parse(decoder.write(buf));
   expediente.data = { numero, anio, cuij };
 
@@ -24,6 +25,6 @@ const run = async () => {
     }
   }
 
-  await fs.writeFile(path.join(DATADIR, 'ms-index.json'), JSON.stringify(ms.toJSON()))
+  await fs.writeFile(process.argv[3], JSON.stringify(ms.toJSON()))
 }
 run()

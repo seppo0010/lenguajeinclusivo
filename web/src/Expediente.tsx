@@ -82,7 +82,6 @@ function Expediente({ data: { Actuaciones, caratula }, search }: ExpedienteProps
       actsId.push(res[i].actId);
       docsURL.push(res[i].URL)
     }
-    console.error(res);
 
     setActuaciones(Actuaciones
       .filter((act) => actsId.includes(act.actId))

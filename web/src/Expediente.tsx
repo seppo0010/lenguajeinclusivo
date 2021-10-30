@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Section from './Section';
 import Actuacion, { ActuacionData } from './Actuacion';
 
-import { MiniSearchConfig } from './ms'
+import MiniSearchConfig from './minisearch.config'
 import MiniSearch from 'minisearch'
 
 export interface ExpedienteURL {
@@ -50,7 +50,7 @@ export function ExpedienteLoader({ file, search }: ExpedienteURL) {
     fetch(`${process.env.PUBLIC_URL}/data/${file}-index.json`)
       .then(res => res.text())
       .then(json => {
-        const ms = MiniSearch.loadJSON(json, MiniSearchConfig)
+        const ms = MiniSearch.loadJSON(json, MiniSearchConfig.main)
         setMinisearch(ms)
       })
       .catch(e => {
@@ -71,10 +71,7 @@ function Expediente({ data: { Actuaciones, caratula }, search }: ExpedienteProps
       setActuaciones(Actuaciones)
       return
     }
-    const res = search.minisearch.search(search.term, {
-      prefix: term => term.length > 3,
-      fuzzy: term => term.length > 3 ? 0.2 : false
-    })
+    const res = search.minisearch.search(search.term, MiniSearchConfig.search)
 
     const actsId: number[] = []
     const docsURL: string[] = []

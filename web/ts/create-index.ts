@@ -9,7 +9,7 @@ const decoder = new StringDecoder('utf8');
 const DATADIR = '../public/data';
 
 const run = async () => {
-  const ms = new MiniSearch(MiniSearchConfig);
+  const ms = new MiniSearch(MiniSearchConfig.main);
 
   const buf = await fs.readFile(path.join(DATADIR, 'a.json'));
   const { Actuaciones, numero, anio, cuij, ...expediente } = JSON.parse(decoder.write(buf));

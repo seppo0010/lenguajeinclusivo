@@ -95,9 +95,9 @@ function Expediente({ data: { Actuaciones, caratula }, search }: ExpedienteProps
   return (
     <Section title={caratula}>
       {
-        actuaciones && actuaciones.map((a, i) => (
-          <Actuacion key={i} {...a} />)
-        )
+        actuaciones && actuaciones.map((a) => (
+          <Actuacion key={a.actId} {...a} />
+        ))
       }
     </Section>
   )

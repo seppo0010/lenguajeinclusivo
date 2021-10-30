@@ -85,9 +85,9 @@ function Expediente({ data: { Actuaciones, caratula }, search }: ExpedienteProps
 
     setActuaciones(Actuaciones
       .filter((act) => actsId.includes(act.actId))
-      .map((act) => ({
+      .map(({ documentos, ...act }) => ({
         ...act,
-        documentos: act.documentos.filter((d) => docsURL.includes(d.URL))
+        documentos: documentos.filter((d) => docsURL.includes(d.URL))
       }))
     )
   }, [Actuaciones, search])

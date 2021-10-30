@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Box from './Box';
 import Button from './Button';
 
@@ -8,14 +8,16 @@ export interface DocumentData {
 }
 
 function Document(props: React.PropsWithChildren<DocumentData>) {
+  const [expanded, setExpanded] = useState(false);
+
   return (<Box>
     <div>
-      {props.content}
+      {props.content.slice(0, expanded ? undefined : 200)}
     </div>
     <div>
-      <Button>expand</Button>
+      <Button onClick={() => setExpanded(!expanded)} selected={expanded}>expand</Button>
       <Button href={props.URL}>download</Button>
     </div>
-  </Box>)
+  </Box >)
 }
 export default Document

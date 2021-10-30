@@ -1,18 +1,15 @@
-const MiniSearch = require('minisearch');
 import { promises as fs } from 'fs';
 import * as path from 'path';
+const MiniSearch = require('minisearch');
+const MiniSearchConfig = require('../src/minisearch.config');
+
 const { StringDecoder } = require('string_decoder');
 const decoder = new StringDecoder('utf8');
 
-const DATADIR = '../../data';
+const DATADIR = '../public/data';
 
 const run = async () => {
-  // FIXME: duplicates Expediente.tsx
-  const ms = new MiniSearch({
-    fields: ['content', 'URL'],
-    storeFields: ['content', 'URL', 'ExpId', 'actId'],
-    idField: 'numeroDeExpediente'
-  });
+  const ms = new MiniSearch(MiniSearchConfig);
 
   const buf = await fs.readFile(path.join(DATADIR, 'a.json'));
   const { Actuaciones, numero, anio, cuij, ...expediente } = JSON.parse(decoder.write(buf));
@@ -26,6 +23,6 @@ const run = async () => {
     }
   }
 
-  await fs.writeFile('index.json', JSON.stringify(ms.toJSON()))
+  await fs.writeFile(path.join(DATADIR, 'ms-index.json'), JSON.stringify(ms.toJSON()))
 }
 run()

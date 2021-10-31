@@ -1,16 +1,16 @@
-import React from 'react';
+import React, { ReactElement } from 'react';
 import Box from './Box';
 import './Section.css';
 
 interface SectionIface {
-  title?: string
+  title?: string | ReactElement
 }
 function Section(props: React.PropsWithChildren<SectionIface>) {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
   }
   return (
-    <Box id={props.title}>
+    <Box>
       <form onSubmit={handleSubmit}>
         <fieldset>
           {props.title && <legend>{props.title}</legend>}

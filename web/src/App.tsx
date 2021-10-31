@@ -27,11 +27,11 @@ function App() {
 
   useEffect(() => {
     if (!expedientes.length) return;
-    (async () => {
-      for (let i = 0; i < expedientes.length; i++) {
-        const res = await fetch(`${process.env.PUBLIC_URL}/data/${expedientes[i].file}.json`)
-      }
-    })()
+    expedientes.forEach((expediente) => {
+      // warm up cache
+      fetch(`${process.env.PUBLIC_URL}/data/${expediente.file}.json`)
+      fetch(`${process.env.PUBLIC_URL}/data/${expediente.file}-index.json`)
+    })
   }, [expedientes])
 
   return (
@@ -39,6 +39,11 @@ function App() {
       <Box id="title">
         <h1>Buscador de Actuaciones de O.D.I.A.</h1>
       </Box>
+      <Section title="buscar">
+        <input type="search" id="search-input" name="search"
+          onChange={handleChange} value={search} placeholder="buscar..." />
+        <img src={searchImg} alt="" />
+      </Section>
       <Section title="expedientes">
         {(expedientes.length)
           ? expedientes.map(({ id }, i) =>
@@ -48,14 +53,8 @@ function App() {
               {id}
             </Button>)
           : <p>loading...</p>}
-        {selected !== undefined && <ExpedienteLoader {...selected} />}
+        {selected !== undefined && <ExpedienteLoader {...selected} search={search} />}
       </Section>
-      <div title="buscar">
-        <input type="search" id="search-input" name="search"
-          onChange={handleChange} value={search} placeholder="buscar..." />
-        <img src={searchImg} />
-        {search}
-      </div>
     </div >
   );
 }

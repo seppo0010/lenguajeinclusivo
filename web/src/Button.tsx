@@ -2,13 +2,18 @@ import React from 'react'
 import './Button.css'
 
 interface ButtonIface {
-  onClick?: React.MouseEventHandler<HTMLAnchorElement>
+  onClick?: Function
   href?: string
   selected?: boolean
 }
 
-const Button = (props: React.PropsWithChildren<ButtonIface>) => {
-  return (<a className={`button ${props.selected ? 'selected' : null}`} {...props}>
+const Button = ({ selected, onClick, ...props }: React.PropsWithChildren<ButtonIface>) => {
+  const handleOnClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    onClick && onClick(props)
+  }
+
+  return (<a className={`button ${selected ? 'selected' : null}`}
+    onClick={handleOnClick} {...props}>
     {props.children}
   </a>)
 }

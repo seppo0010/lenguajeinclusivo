@@ -23,7 +23,7 @@ function Highlighter({ text, term, length }: React.PropsWithChildren<Highlighter
 
     const index = text.search(new RegExp(term, 'i'))
 
-    if (!index) {
+    if (index === -1) {
       updateFragment();
       return;
     };

@@ -21,8 +21,8 @@ function Document({ data, search }: React.PropsWithChildren<DocumentProps>) {
       <Highlighter text={data.content} term={search.term} length={expanded ? 0 : 200} />
     </div>
     <div>
-      <Button onClick={() => setExpanded(!expanded)} selected={expanded}>expand</Button>
-      <Button href={data.URL}>download</Button>
+      <Button onClick={() => setExpanded(!expanded)} selected={expanded}>expandir</Button>
+      <Button href={data.URL}>descargar</Button>
     </div>
   </Box >)
 }

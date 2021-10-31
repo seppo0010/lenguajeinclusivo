@@ -1,7 +1,7 @@
-export const defaultSearchResults = {actId: [], ExpId: [], URLs: []}
+import React from 'react';
+import MiniSearch from 'minisearch'
 
-export interface SearchResults {
-  actId: number[]
-  ExpId: string[]
-  URLs: string[]
+export interface SearchData {
+  term?: string
+  minisearch: MiniSearch
 }

@@ -1,6 +1,8 @@
 import React from 'react';
 import Document, { DocumentData } from './Document';
+import { SearchData } from './Search';
 import Section from './Section';
+import Highlighter from './Highlighter';
 
 export interface ActuacionData {
   actId: number
@@ -10,10 +12,14 @@ export interface ActuacionData {
   titulo: string
 }
 
-function Actuacion(props: React.PropsWithChildren<ActuacionData>) {
+export interface ActuacionProps {
+  data: ActuacionData
+  search: SearchData
+}
+function Actuacion({ data, search }: React.PropsWithChildren<ActuacionProps>) {
   return (
-    <Section title={props.titulo}>
-      {props.documentos.map((d) => <Document key={d.URL} {...d} />)}
+    <Section title={<Highlighter text={data.titulo} term={search.term} />}>
+      {data.documentos.map((d) => <Document key={d.URL} data={d} search={search} />)}
     </Section>
   )
 }

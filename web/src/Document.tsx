@@ -1,22 +1,28 @@
 import React, { useState } from 'react';
 import Box from './Box';
 import Button from './Button';
+import { SearchData } from './Search';
+import Highlighter from './Highlighter';
 
 export interface DocumentData {
   URL: string;
   content: string;
 }
 
-function Document(props: React.PropsWithChildren<DocumentData>) {
+export interface DocumentProps {
+  data: DocumentData
+  search: SearchData
+}
+function Document({ data, search }: React.PropsWithChildren<DocumentProps>) {
   const [expanded, setExpanded] = useState(false);
 
   return (<Box>
     <div>
-      {props.content.slice(0, expanded ? undefined : 200)}
+      <Highlighter text={data.content} term={search.term} length={expanded ? 0 : 200} />
     </div>
     <div>
       <Button onClick={() => setExpanded(!expanded)} selected={expanded}>expand</Button>
-      <Button href={props.URL}>download</Button>
+      <Button href={data.URL}>download</Button>
     </div>
   </Box >)
 }

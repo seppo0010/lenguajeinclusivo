@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Section from './Section';
 import Actuacion, { ActuacionData } from './Actuacion';
+import { SearchData } from './Search';
+import Highlighter from './Highlighter';
 
 import MiniSearchConfig from './minisearch.config'
 import MiniSearch from 'minisearch'
@@ -16,11 +18,6 @@ export interface ExpedienteData {
   expId: number
   caratula: string
   Actuaciones: ActuacionData[]
-}
-
-export interface SearchData {
-  term?: string
-  minisearch: MiniSearch
 }
 
 export interface ExpedienteProps {
@@ -90,13 +87,13 @@ function Expediente({ data: { Actuaciones, caratula }, search }: ExpedienteProps
   }, [Actuaciones, search])
 
   return (
-    <Section title={caratula}>
+    <Section title={<Highlighter text={caratula} term={search.term} />}>
       {
         actuaciones && actuaciones.map((a) => (
-          <Actuacion key={a.actId} {...a} />
+          <Actuacion key={a.actId} data={a} search={search} />
         ))
       }
-    </Section>
+    </ Section>
   )
 }
 export default Expediente

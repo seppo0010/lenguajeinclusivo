@@ -93,7 +93,7 @@ function Expediente({ data: { Actuaciones, caratula }, search }: ExpedienteProps
           <Actuacion key={a.actId} data={a} search={search} />
         ))
       }
-    </ Section>
+    </Section>
   )
 }
 export default Expediente

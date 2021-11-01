@@ -26,6 +26,12 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!selected && expedientes.length) {
+      setSelected(expedientes[0])
+    }
+  }, [expedientes])
+
+  useEffect(() => {
     if (!expedientes.length) return;
     expedientes.forEach((expediente) => {
       // warm up cache

@@ -26,7 +26,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (expedientes.length === 1) {
+    if (!selected && expedientes.length) {
       setSelected(expedientes[0])
     }
   }, [expedientes])

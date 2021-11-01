@@ -17,6 +17,7 @@ const run = async () => {
 
   for (let i = 0; i < Actuaciones.length; i++) {
     const { documentos, ...actuacion } = Actuaciones[i];
+    actuacion.actId = actuacion.actId || actuacion.fechaFirma
     for (let j = 0; j < documentos.length; j++) {
       let d = { ...expediente, ...actuacion, ...documentos[j] };
       ms.add(d);

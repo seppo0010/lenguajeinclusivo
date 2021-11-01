@@ -90,7 +90,7 @@ function Expediente({ data: { Actuaciones, caratula }, search }: ExpedienteProps
     <Section title={<Highlighter text={caratula} term={search.term} />}>
       {
         actuaciones && actuaciones.map((a) => (
-          <Actuacion key={a.actId} data={a} search={search} />
+          <Actuacion key={a.actId || a.fechaFirma} data={a} search={search} />
         ))
       }
     </Section>

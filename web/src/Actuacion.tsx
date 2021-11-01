@@ -10,6 +10,7 @@ export interface ActuacionData {
   cuij: string
   documentos: DocumentData[]
   titulo: string
+  fechaFirma: number
 }
 
 export interface ActuacionProps {

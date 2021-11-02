@@ -20,6 +20,4 @@ do
 done
 
 yarn build
-rm -rf /tmp/juscaba/web
-mkdir -p /tmp/juscaba/web
-mv build/* /tmp/juscaba/web
+mv build /tmp/juscaba/web/

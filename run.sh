@@ -1,14 +1,14 @@
 #!/bin/bash
 set -Eeux
 
+SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+mkdir -p /tmp/juscaba/pdfs
+mkdir -p /tmp/juscaba/web
+mkdir -p ${SCRIPT_DIR}/web/public/data
 for ((i=1; i<=$#; i++))
 do
     exp=${!i}
     exp_filename=${!i/\//-}
-    SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-    mkdir -p /tmp/juscaba/pdfs
-    mkdir -p /tmp/juscaba/web
-    mkdir -p ${SCRIPT_DIR}/web/public/data
 
     ./builder -blacklist=/tmp/juscaba/blacklist "-json=/tmp/juscaba/${exp_filename}.json" -pdfs=/tmp/juscaba/pdfs "-expediente=${exp}" -images=false
 

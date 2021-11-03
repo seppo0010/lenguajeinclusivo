@@ -105,7 +105,7 @@ func main() {
 				continue
 			}
 			doc.Content, _ = extracttext.GetDocumentText(reader, args.parseImages)
-			doc.MirrorURL, _ = fm.DestinationURLforSourceURL(doc.URL)
+			doc.MirrorURL, _ = args.fm.DestinationURLforSourceURL(doc.URL)
 		}
 	}
 	fp, err := os.Create(args.jsonPath)

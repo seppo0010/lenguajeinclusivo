@@ -158,7 +158,6 @@ func readImageText(filename string) (string, error) {
 }
 
 func getDocumentImagesText(dir, p string) (string, error) {
-	return "", nil
 	log.WithFields(log.Fields{
 		"directory": dir,
 		"path":      p,

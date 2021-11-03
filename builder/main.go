@@ -71,6 +71,7 @@ func main() {
 				continue
 			}
 			doc.Content, _ = extracttext.GetDocumentText(reader)
+			doc.MirrorURL, _ = fm.DestinationURLforSourceURL(doc.URL)
 		}
 	}
 	fp, err := os.Create(jsonPath)

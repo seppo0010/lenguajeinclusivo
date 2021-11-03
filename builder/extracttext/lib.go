@@ -188,7 +188,7 @@ func getDocumentImagesText(dir, p string) (string, error) {
 	return text, nil
 }
 
-func GetDocumentText(r io.Reader) (string, error) {
+func GetDocumentText(r io.Reader, images bool) (string, error) {
 	dir, p, err := writeToTempFile(r)
 	defer os.RemoveAll(dir)
 	if err != nil {
@@ -199,10 +199,15 @@ func GetDocumentText(r io.Reader) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Info("getting pdf images text")
-	text2, err := getDocumentImagesText(dir, p)
-	if err != nil {
-		return "", err
+	text2 := ""
+	if images {
+		log.Info("getting pdf images text")
+		text2, err = getDocumentImagesText(dir, p)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		log.Info("skipping images text")
 	}
 	return fmt.Sprintf("%s\n%s", text, text2), nil
 }

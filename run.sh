@@ -20,4 +20,5 @@ do
 done
 
 yarn build
+rm -rf /tmp/juscaba/web/build
 mv build /tmp/juscaba/web/

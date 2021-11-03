@@ -14,7 +14,7 @@ type FileManager struct {
 }
 
 func (s *FileManager) Path(url string) string {
-	return path.Join(s.Directory, GetSha1(url))
+	return path.Join(s.Directory, GetSha1(url)) + ".pdf"
 }
 
 func (s *FileManager) IsSaved(url string) bool {

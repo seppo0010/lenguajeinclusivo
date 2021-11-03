@@ -1,9 +1,10 @@
 package fetcher
 
 import (
+	"crypto/sha1"
 	"fmt"
+	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/odia/juscaba/shared"
 	log "github.com/sirupsen/logrus"
@@ -26,27 +27,25 @@ func Download(s *shared.FileManager, url string) error {
 	}
 	defer res.Body.Close()
 
-	f, err := os.Create(s.Path(url))
+	content, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
 			"url":   url,
-		}).Error("Failed to write file")
+		}).Error("Failed to read url data")
 		return err
 	}
-	defer f.Close()
-	if res.StatusCode != http.StatusOK {
+
+	h := sha1.New()
+	_, err = h.Write(content)
+	if err != nil {
 		log.WithFields(log.Fields{
-			"url":         url,
-			"status code": res.StatusCode,
-		}).Warn("Did not save, leaving file empty")
-		return fmt.Errorf("did not save status %d", res.StatusCode)
+			"error": err.Error(),
+			"url":   url,
+		}).Error("Failed to create hash")
+		return err
 	}
 
-	f.ReadFrom(res.Body)
-	log.WithFields(log.Fields{
-		"url": url,
-	}).Info("saved")
-
-	return nil
+	savedFile := shared.NewSavedFile(url, fmt.Sprintf("%x.pdf", h.Sum(nil)))
+	return s.SaveSavedFile(savedFile, content)
 }

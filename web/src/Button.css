@@ -21,6 +21,7 @@ a.button {
     color: white;
     text-decoration: none;
     font-weight: bold;
+    cursor: pointer;
 }
 a.button.selected {
     background: #ce342c;

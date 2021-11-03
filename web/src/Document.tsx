@@ -5,6 +5,7 @@ import { SearchData } from './Search';
 import Highlighter from './Highlighter';
 
 export interface DocumentData {
+  MirrorURL: string;
   URL: string;
   content: string;
 }
@@ -22,7 +23,7 @@ function Document({ data, search }: React.PropsWithChildren<DocumentProps>) {
     </div>
     <div>
       <Button onClick={() => setExpanded(!expanded)} selected={expanded}>expandir</Button>
-      <Button href={data.URL}>descargar</Button>
+      <Button href={data.MirrorURL}>descargar</Button>
     </div>
   </Box >)
 }

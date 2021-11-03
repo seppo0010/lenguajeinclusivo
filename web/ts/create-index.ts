@@ -12,7 +12,7 @@ const DATADIR = '../public/data';
 const run = async () => {
   const ms = new MiniSearch(MiniSearchConfig.main);
 
-  const buf = await fs.readFile(process.argv[2]);
+  const buf = await fs.readFile(process.argv[2] || path.join(DATADIR, 'a.json'));
   const { Actuaciones, numero, anio, cuij, ...expediente } = JSON.parse(decoder.write(buf));
   expediente.data = { numero, anio, cuij };
 
@@ -25,6 +25,6 @@ const run = async () => {
     }
   }
 
-  await fs.writeFile(process.argv[3], JSON.stringify(ms.toJSON()))
+  await fs.writeFile(process.argv[3] || path.join(DATADIR, 'ms-index.json'), JSON.stringify(ms.toJSON()))
 }
 run()

@@ -111,6 +111,7 @@ type Expediente struct {
 
 type Documento struct {
 	URL                string
+	MirrorURL          string
 	ActuacionID        string `json:"actuacionId"`
 	NumeroDeExpediente string `json:"numeroDeExpediente"`
 	Type               int    `json:"type"`

@@ -3,6 +3,7 @@ package shared
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -38,6 +39,14 @@ func (s *FileManager) metadataPath(url string) string {
 
 func (s *FileManager) destinationPath(sf *SavedFile) string {
 	return path.Join(s.Directory, sf.DestinationFilename)
+}
+
+func (s *FileManager) DestinationURLforSourceURL(url string) (string, error) {
+	sf, err := s.SavedFileForURL(url)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("http://srfp-documentos.odia.legal/%s", sf.DestinationFilename), nil
 }
 
 func (s *FileManager) IsSaved(url string) bool {
@@ -102,27 +111,27 @@ func (s *FileManager) SaveSavedFile(sf *SavedFile, content []byte) error {
 	}
 	defer metadataWriter.Close()
 	err = json.NewEncoder(metadataWriter).Encode(sf)
-    if err != nil {
-        log.WithFields(log.Fields{
-            "savedFile": sf,
-            "error":     err.Error(),
-        }).Error("failed to write metadata file")
-	return err
-    }
-    return nil
+	if err != nil {
+		log.WithFields(log.Fields{
+			"savedFile": sf,
+			"error":     err.Error(),
+		}).Error("failed to write metadata file")
+		return err
+	}
+	return nil
 }
 
 func (s *FileManager) GetReader(url string) (io.Reader, error) {
-    sf, err := s.SavedFileForURL(url)
-    if err != nil {
-        return nil, err
-    }
-    fp, err := os.Open(s.destinationPath(sf))
-    if err != nil {
-	log.WithFields(log.Fields{
-		"url": url,
-		"error":     err.Error(),
-	}).Error("failed to read content file")
-    }
-    return fp, nil
+	sf, err := s.SavedFileForURL(url)
+	if err != nil {
+		return nil, err
+	}
+	fp, err := os.Open(s.destinationPath(sf))
+	if err != nil {
+		log.WithFields(log.Fields{
+			"url":   url,
+			"error": err.Error(),
+		}).Error("failed to read content file")
+	}
+	return fp, nil
 }

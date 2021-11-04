@@ -29,7 +29,7 @@ function App() {
     if (!selected && expedientes.length) {
       setSelected(expedientes[0])
     }
-  }, [expedientes])
+  }, [expedientes, selected])
 
   useEffect(() => {
     if (!expedientes.length) return;

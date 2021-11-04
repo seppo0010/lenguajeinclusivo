@@ -21,4 +21,5 @@ done
 
 yarn build
 rm -rf /tmp/juscaba/web/build
+chmod -R 777 build
 mv build /tmp/juscaba/web/

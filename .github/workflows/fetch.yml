@@ -1,0 +1,25 @@
+name: fetch new files and re-index
+on:
+  schedule:
+    - cron: '30 5,12,17 * * *'
+  push:
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    env:
+      EXPEDIENTES: 182908-2020-0 182908-2020-1
+      EXPEDIENTES_JSON: '[{"id":"Sistema de Reconocimiento Facial","file":"182908-2020-0"},{"id":"Recusación","file":"182908-2020-1"}]'
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v2
+      - name: Checkout Pages repo
+        uses: actions/checkout@v2
+        with:
+          ref: 'gh-pages'
+          path: 'build'
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag juscaba:$(date +%s)
+      - name: Run the workload
+        run: docker run -v $(pwd):/tmp/juscaba juscaba ./run.sh $EXPEDIENTES
+      - name: Create expedientes.json
+        run: echo ${EXPEDIENTES_JSON} > web/build/data/expedientes.json

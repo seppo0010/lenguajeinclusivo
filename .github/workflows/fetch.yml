@@ -18,8 +18,8 @@ jobs:
           ref: 'gh-pages'
           path: 'build'
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag juscaba:$(date +%s)
-      - name: Run the workload
+        run: docker build . --file Dockerfile --tag juscaba
+      - name: Run the container
         run: docker run -v $(pwd):/tmp/juscaba juscaba ./run.sh $EXPEDIENTES
       - name: Create expedientes.json
         run: echo ${EXPEDIENTES_JSON} > web/build/data/expedientes.json

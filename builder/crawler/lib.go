@@ -48,6 +48,7 @@ func getExpedienteCandidates(criteria string) ([]int, error) {
 		log.WithFields(log.Fields{
 			"expediente": criteria,
 			"url":        u,
+			"error":      err.Error(),
 		}).Warn("Failed to get expediente")
 		return nil, err
 	}

@@ -2,16 +2,13 @@
 set -Eeux
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-mkdir -p /tmp/juscaba/pdfs
-mkdir -p /tmp/juscaba/web
 mkdir -p ${SCRIPT_DIR}/web/public/data
 for ((i=1; i<=$#; i++))
 do
     exp=${!i}
     exp_filename=${!i/\//-}
 
-    cp -a pdfs/* /tmp/juscaba/pdfs/
-    ./builder -blacklist=/tmp/juscaba/blacklist "-json=/tmp/juscaba/${exp_filename}.json" -pdfs=/tmp/juscaba/pdfs "-expediente=${exp}" -images=true
+    ./builder -blacklist=/tmp/juscaba/blacklist "-json=/tmp/juscaba/${exp_filename}.json" -pdfs=./pdfs "-expediente=${exp}" -images=true
 
     pushd ts
     yarn run ts-node create-index.ts /tmp/juscaba/${exp_filename}.json /tmp/juscaba/${exp_filename}-index.json
@@ -21,6 +18,8 @@ do
 done
 
 yarn build
+
+mkdir -p /tmp/juscaba/web
 rm -rf /tmp/juscaba/web/build
 chmod -R 777 build
 mv build /tmp/juscaba/web/

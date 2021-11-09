@@ -17,6 +17,7 @@ do
     cp /tmp/juscaba/${exp_filename}{-index,}.json ${SCRIPT_DIR}/web/public/data
 done
 
+yarn
 yarn build
 
 mkdir -p /tmp/juscaba/web

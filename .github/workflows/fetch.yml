@@ -12,11 +12,16 @@ jobs:
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v2
-      - name: Checkout Pages repo
+      - name: Checkout pages repo
         uses: actions/checkout@v2
         with:
           ref: 'gh-pages'
           path: 'build'
+      - name: Checkout PDFs repo
+        uses: actions/checkout@v2
+        with:
+          repository: 'odia/srfp-documentos.github.io'
+          path: 'pdfs'
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag juscaba
       - name: Run the container

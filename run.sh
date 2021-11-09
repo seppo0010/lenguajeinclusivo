@@ -16,7 +16,7 @@ do
     yarn run ts-node create-index.ts /tmp/juscaba/${exp_filename}.json /tmp/juscaba/${exp_filename}-index.json
     popd
 
-    cp /tmp/juscaba/${exp_filename}{-index,}.json public/data
+    cp /tmp/juscaba/${exp_filename}{-index,}.json ${SCRIPT_DIR}/web/public/data
 done
 
 yarn build

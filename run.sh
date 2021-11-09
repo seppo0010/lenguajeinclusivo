@@ -10,6 +10,7 @@ do
     exp=${!i}
     exp_filename=${!i/\//-}
 
+    cp -a pdfs/* /tmp/juscaba/pdfs/
     ./builder -blacklist=/tmp/juscaba/blacklist "-json=/tmp/juscaba/${exp_filename}.json" -pdfs=/tmp/juscaba/pdfs "-expediente=${exp}" -images=true
 
     pushd ts

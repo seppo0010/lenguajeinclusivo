@@ -10,7 +10,7 @@ RUN go get -d -v ./...
 RUN go build .
 
 
-FROM node:buster-slim as build
+FROM node:14-buster-slim as build
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \

@@ -21,10 +21,10 @@ RUN apt-get update && apt-get install -y \
 
 ENV PATH /app/node_modules/.bin:$PATH
 COPY web/package.json ./
-#COPY web/yarn.lock ./
+COPY web/yarn.lock ./
 COPY web/ts/package.json ./ts/
-#COPY web/ts/yarn.lock ./ts/
-RUN yarn
+COPY web/ts/yarn.lock ./ts/
+RUN yarn --frozen-lockfile
 
 WORKDIR /app/ts
 RUN yarn

@@ -10,7 +10,7 @@ RUN go get -d -v ./...
 RUN go build .
 
 
-FROM node:slim as build
+FROM node:buster-slim as build
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
@@ -21,9 +21,9 @@ RUN apt-get update && apt-get install -y \
 
 ENV PATH /app/node_modules/.bin:$PATH
 COPY web/package.json ./
-COPY web/yarn.lock ./
+#COPY web/yarn.lock ./
 COPY web/ts/package.json ./ts/
-COPY web/ts/yarn.lock ./ts/
+#COPY web/ts/yarn.lock ./ts/
 RUN yarn
 
 WORKDIR /app/ts

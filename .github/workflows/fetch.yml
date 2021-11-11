@@ -6,6 +6,7 @@ on:
 jobs:
   docker-build:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
     env:
       EXPEDIENTES: 182908/2020-0 182908/2020-1
       EXPEDIENTES_JSON: '[{"id":"Sistema de Reconocimiento Facial","file":"182908-2020-0"},{"id":"Recusación","file":"182908-2020-1"}]'
@@ -37,3 +38,10 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build
+      - name: Deploy pdfs
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          external_repository: odia/srfp-documentos.github.io
+          publish_branch: gh-pages
+          publish_dir: ./pdfs

@@ -27,4 +27,10 @@ jobs:
       - name: Run the container
         run: docker run -v $(pwd):/tmp/juscaba juscaba ./run.sh $EXPEDIENTES
       - name: Create expedientes.json
-        run: echo ${EXPEDIENTES_JSON} > web/build/data/expedientes.json
+        run: echo ${EXPEDIENTES_JSON} > build/data/expedientes.json
+      - name: Create CNAME
+        run: echo "${srfp-expediente.odia.legal}" > build/
+      - name: Install gh-pages
+        run: npm i -g gh-pages
+      - name: Run gh-pages
+        run: gh-pages -d build

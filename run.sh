@@ -1,7 +1,6 @@
 #!/bin/bash
 set -Eeux
 
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 mkdir -p /tmp/juscaba/pdfs
 mkdir -p public/data
 for ((i=1; i<=$#; i++))
@@ -16,10 +15,9 @@ do
     popd
 done
 
-yarn
+yarn --frozen-lockfile
 yarn build
 
-mkdir -p /tmp/juscaba/web
-rm -rf /tmp/juscaba/web/build
+rm -rf /tmp/juscaba/build
 chmod -R 777 build
-mv build /tmp/juscaba/web/
+mv build /tmp/juscaba/

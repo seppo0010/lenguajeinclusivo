@@ -34,4 +34,5 @@ jobs:
       - name: Install gh-pages
         run: npm i -g gh-pages
       - name: Run gh-pages
-        run: gh-pages -d build
+        # need to get into web to have package.json available
+        run: cd web/ && gh-pages -d ../build && cd ..

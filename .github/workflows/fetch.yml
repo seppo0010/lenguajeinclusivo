@@ -10,6 +10,7 @@ jobs:
       EXPEDIENTES: 182908/2020-0 182908/2020-1
       EXPEDIENTES_JSON: '[{"id":"Sistema de Reconocimiento Facial","file":"182908-2020-0"},{"id":"Recusación","file":"182908-2020-1"}]'
       CNAME: srfp-expediente.odia.legal}
+      COMMIT_AUTHOR: ODIA <odia@odia.legal>
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v2
@@ -35,4 +36,4 @@ jobs:
         run: npm i -g gh-pages
       - name: Run gh-pages
         # need to get into web to have package.json available
-        run: cd web/ && gh-pages -d ../build && cd ..
+        run: cd web/ && gh-pages -u "${COMMIT_AUTHOR}" -d ../build && cd ..

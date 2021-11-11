@@ -32,8 +32,8 @@ jobs:
         run: echo "${EXPEDIENTES_JSON}" > build/data/expedientes.json
       - name: Create CNAME
         run: echo "${CNAME}" > build/CNAME
-      - name: Install gh-pages
-        run: npm i -g gh-pages
-      - name: Run gh-pages
-        # need to get into web to have package.json available
-        run: cd web/ && gh-pages -u "${COMMIT_AUTHOR}" -d ../build && cd ..
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build

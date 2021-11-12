@@ -5,6 +5,7 @@ module.exports = {
     idField: 'numeroDeExpediente'
   },
   search: {
+    combineWith: 'AND',
     prefix: term => term.length > 3,
     fuzzy: term => term.length > 3 ? 0.2 : false
   }

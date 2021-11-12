@@ -84,7 +84,7 @@ func getDocumentPlainText(p string) (string, error) {
 }
 
 func pdftohtml(p string) error {
-	cmd := exec.Command("pdftohtml", p)
+	cmd := exec.Command("pdftohtml", "-c", p)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		log.WithFields(log.Fields{

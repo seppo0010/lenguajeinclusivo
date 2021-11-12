@@ -1,0 +1,47 @@
+name: fetch new files and re-index
+on:
+  schedule:
+    - cron: '30 5,12,17 * * *'
+  push:
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    env:
+      EXPEDIENTES: 182908/2020-0 182908/2020-1
+      EXPEDIENTES_JSON: '[{"id":"Sistema de Reconocimiento Facial","file":"182908-2020-0"},{"id":"Recusación","file":"182908-2020-1"}]'
+      CNAME: srfp-expediente.odia.legal
+      COMMIT_AUTHOR: ODIA <odia@odia.legal>
+      READ_IMAGES: true
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v2
+      - name: Checkout pages repo
+        uses: actions/checkout@v2
+        with:
+          ref: 'gh-pages'
+          path: 'build'
+      - name: Checkout PDFs repo
+        uses: actions/checkout@v2
+        with:
+          repository: 'odia/srfp-documentos.github.io'
+          path: 'pdfs'
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag juscaba
+      - name: Run the container
+        run: docker run -v $(pwd):/tmp/juscaba juscaba ./run.sh $EXPEDIENTES
+      - name: Create expedientes.json
+        run: echo "${EXPEDIENTES_JSON}" > build/data/expedientes.json
+      - name: Create CNAME
+        run: echo "${CNAME}" > build/CNAME
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
+      - name: Deploy pdfs
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          deploy_key: ${{ secrets.SRFP_EXPEDIENTE_KEY }}
+          external_repository: odia/srfp-documentos.github.io
+          publish_branch: gh-pages
+          publish_dir: ./pdfs

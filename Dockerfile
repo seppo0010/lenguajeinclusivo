@@ -10,12 +10,13 @@ RUN go get -d -v ./...
 RUN go build .
 
 
-FROM node:slim as build
+FROM node:14-buster-slim as build
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     tesseract-ocr-spa \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH /app/node_modules/.bin:$PATH
@@ -23,7 +24,7 @@ COPY web/package.json ./
 COPY web/yarn.lock ./
 COPY web/ts/package.json ./ts/
 COPY web/ts/yarn.lock ./ts/
-RUN yarn
+RUN yarn --frozen-lockfile
 
 WORKDIR /app/ts
 RUN yarn

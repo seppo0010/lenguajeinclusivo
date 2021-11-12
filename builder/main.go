@@ -47,9 +47,6 @@ func parseArguments() (*arguments, error) {
 	}
 
 	args.blacklist, err = readBlacklist(blacklistPath)
-	if err != nil {
-		return nil, err
-	}
 	return &args, nil
 }
 
@@ -60,7 +57,7 @@ func readBlacklist(path string) (map[string]bool, error) {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
 			"path":  path,
-		}).Error("failed to read blacklist file")
+		}).Warn("failed to read blacklist file")
 		return nil, err
 	}
 	defer file.Close()

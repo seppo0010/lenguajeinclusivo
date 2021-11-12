@@ -15,7 +15,6 @@ do
     popd
 done
 
-yarn --frozen-lockfile
 yarn build
 
 rm -rf /tmp/juscaba/build

@@ -11,7 +11,7 @@ do
     ./builder "-json=public/data/${exp_filename}.json" -pdfs=/tmp/juscaba/pdfs "-expediente=${exp}" -images=${READ_IMAGES:-true} "-blacklist=${BLACKLIST_REGEX:-}"
 
     pushd ts
-    yarn run ts-node create-index.ts public/data/${exp_filename}.json public/data/${exp_filename}-index.json
+    yarn run ts-node create-index.ts ../public/data/${exp_filename}.json ../public/data/${exp_filename}-index.json
     popd
 done
 

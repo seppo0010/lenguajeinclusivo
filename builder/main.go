@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"flag"
 	"os"
+	"regexp"
 
 	crawler "github.com/odia/juscaba/crawler"
 	extracttext "github.com/odia/juscaba/extracttext"
@@ -14,18 +14,18 @@ import (
 )
 
 type arguments struct {
-	blacklist   map[string]bool
-	jsonPath    string
-	fm          *shared.FileManager
-	exp         *shared.Expediente
-	parseImages bool
+	blacklistRegex string
+	jsonPath       string
+	fm             *shared.FileManager
+	exp            *shared.Expediente
+	parseImages    bool
 }
 
 func parseArguments() (*arguments, error) {
-	var pdfsPath, expId, blacklistPath string
+	var pdfsPath, expId string
 	var err error
 	args := arguments{}
-	flag.StringVar(&blacklistPath, "blacklist", "", "path to file with urls not to download")
+	flag.StringVar(&args.blacklistRegex, "blacklist", "", "regex of urls to ignore (e.g.: \"(cedulas.*667442)|(actuaciones.*349676)\")")
 	flag.StringVar(&args.jsonPath, "json", "", "json destination path")
 	flag.StringVar(&pdfsPath, "pdfs", "", "pdfs destination path")
 	flag.StringVar(&expId, "expediente", "", "expediente identifier (e.g.: \"182908/2020-0\")")
@@ -33,7 +33,6 @@ func parseArguments() (*arguments, error) {
 	flag.Parse()
 
 	log.WithFields(log.Fields{
-		"blacklist":   blacklistPath,
 		"json":        args.jsonPath,
 		"pdfs":        pdfsPath,
 		"expediente":  expId,
@@ -46,35 +45,7 @@ func parseArguments() (*arguments, error) {
 		return nil, err
 	}
 
-	args.blacklist, err = readBlacklist(blacklistPath)
 	return &args, nil
-}
-
-func readBlacklist(path string) (map[string]bool, error) {
-	res := map[string]bool{}
-	file, err := os.Open(path)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-			"path":  path,
-		}).Warn("failed to read blacklist file")
-		return nil, err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		res[scanner.Text()] = true
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-			"path":  path,
-		}).Error("failed to scan blacklist file")
-		return nil, err
-	}
-	return res, nil
 }
 
 func main() {
@@ -87,14 +58,26 @@ func main() {
 		"actuaciones": len(args.exp.Actuaciones),
 	}).Printf("finished")
 
+	if args.blacklistRegex != "" {
+		_, err := regexp.Match(args.blacklistRegex, []byte{})
+		if err != nil {
+			log.WithFields(log.Fields{
+				"regex": args.blacklistRegex,
+				"error": err.Error(),
+			}).Error("failed to parse blacklist regex")
+			os.Exit(1)
+		}
+	}
+
 	for _, act := range args.exp.Actuaciones {
 		for _, doc := range act.Documentos {
-			skip, _ := args.blacklist[doc.URL]
-			if skip {
-				log.WithFields(log.Fields{
-					"url": doc.URL,
-				}).Info("skipping blacklisted URL")
-				continue
+			if args.blacklistRegex != "" {
+				if match, _ := regexp.Match(args.blacklistRegex, []byte(doc.URL)); match {
+					log.WithFields(log.Fields{
+						"url": doc.URL,
+					}).Info("skipping blacklisted URL")
+					continue
+				}
 			}
 			fetcher.Download(args.fm, doc.URL)
 			reader, err := args.fm.GetReader(doc.URL)

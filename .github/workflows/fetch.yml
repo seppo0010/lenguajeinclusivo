@@ -3,8 +3,10 @@ on:
   schedule:
     - cron: '30 5,12,17 * * *'
   push:
+    branches:
+      - main
 jobs:
-  docker-build:
+  deploy:
     runs-on: ubuntu-latest
     env:
       EXPEDIENTES: 182908/2020-0 182908/2020-1

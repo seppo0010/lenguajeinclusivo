@@ -206,24 +206,27 @@ func GetAdjuntosCedula(url string, ficha *shared.Ficha, actuacion *shared.Actuac
 		}).Warn("Failed to decode json")
 		return nil, err
 	}
-	documentos := make([]*shared.Documento, len(adjuntos))
-	for i, adjunto := range adjuntos {
+	documentos := make([]*shared.Documento, 0, len(adjuntos))
+	for _, adjunto := range adjuntos {
+		if val, found := adjunto["adjuntoId"]; !found || val == nil {
+			continue
+		}
 		url := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/cedulas/adjuntoPdf?filter=%%7B%%22aacId%%22:%v,%%22expId%%22:%v,%%22ministerios%%22:false%%7D",
-			adjunto["adjuntoId"],
+			int(adjunto["adjuntoId"].(float64)),
 			ficha.ExpId,
 		)
-		documentos[i] = &shared.Documento{
+		documentos = append(documentos, &shared.Documento{
 			URL:                url,
 			ActuacionID:        actuacion.Id(),
 			NumeroDeExpediente: fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio),
 			Type:               shared.CedulaAttachment,
 			Nombre:             adjunto["adjuntoNombre"].(string),
-		}
+		})
 	}
 	return documentos, nil
 }
 func GetAdjuntosNoCedula(url string, ficha *shared.Ficha, actuacion *shared.Actuacion) ([]*shared.Documento, error) {
-	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/adjuntos?actId=%v&expId=%v&accesoMinisterios=false",
+	u := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/adjuntos?actId=%d&expId=%v&accesoMinisterios=false",
 		actuacion.ActId,
 		ficha.ExpId,
 	)
@@ -247,19 +250,22 @@ func GetAdjuntosNoCedula(url string, ficha *shared.Ficha, actuacion *shared.Actu
 		}).Warn("Failed to decode json")
 		return nil, err
 	}
-	documentos := make([]*shared.Documento, len(adjuntos["adjuntos"]))
-	for i, adjunto := range adjuntos["adjuntos"] {
+	documentos := make([]*shared.Documento, 0, len(adjuntos["adjuntos"]))
+	for _, adjunto := range adjuntos["adjuntos"] {
+		if val, found := adjunto["adjId"]; !found || val == nil {
+			continue
+		}
 		url := fmt.Sprintf("https://eje.juscaba.gob.ar/iol-api/api/public/expedientes/actuaciones/adjuntoPdf?filter=%%7B%%22aacId%%22:%v,%%22expId%%22:%v,%%22ministerios%%22:false%%7D",
-			adjunto["adjId"],
+			int(adjunto["adjId"].(float64)),
 			ficha.ExpId,
 		)
-		documentos[i] = &shared.Documento{
+		documentos = append(documentos, &shared.Documento{
 			URL:                url,
 			ActuacionID:        actuacion.Id(),
 			NumeroDeExpediente: fmt.Sprintf("%d/%d", ficha.Numero, ficha.Anio),
 			Type:               shared.AdjuntosAttachment,
 			Nombre:             adjunto["titulo"].(string),
-		}
+		})
 	}
 	return documentos, nil
 }

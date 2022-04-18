@@ -7,8 +7,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      EXPEDIENTES: 182908/2020-0 182908/2020-1 50809/2019-0
-      EXPEDIENTES_JSON: '[{"id":"Sistema de Reconocimiento Facial","file":"182908-2020-0"},{"id":"Recusación","file":"182908-2020-1"},{"id":"AIP","file":"50809-2019-0"}]'
+      EXPEDIENTES: 182908/2020-0 182908/2020-1 9480/2019-0
+      EXPEDIENTES_JSON: '[{"id":"Sistema de Reconocimiento Facial","file":"182908-2020-0"},{"id":"Recusación","file":"182908-2020-1"},{"id":"AIP","file":"9480/2019-0"}]'
       CNAME: srfp-expediente.odia.legal
       COMMIT_AUTHOR: ODIA <odia@odia.legal>
       READ_IMAGES: true

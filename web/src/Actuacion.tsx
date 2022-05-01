@@ -19,7 +19,7 @@ export interface ActuacionProps {
 }
 function Actuacion({ data, search }: React.PropsWithChildren<ActuacionProps>) {
   return (
-    <Section title={<Highlighter text={data.titulo} term={search.term} />}>
+    <Section title={<Highlighter text={`${new Date(data.fechaFirma).toLocaleDateString('es-AR')} - ${data.titulo}`} term={search.term} />}>
       {data.documentos.map((d) => <Document key={d.URL} data={d} search={search} />)}
     </Section>
   )

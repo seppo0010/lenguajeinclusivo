@@ -7,8 +7,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      EXPEDIENTES: 133549/2020-0
-      EXPEDIENTES_JSON: '[{"id":"Federacion Argentina de Lesbianas y Otros contra GCBA","file":"133549-2020-0"}]'
+      EXPEDIENTES: 133549/2022-0
+      EXPEDIENTES_JSON: '[{"id":"Federacion Argentina de Lesbianas y Otros contra GCBA","file":"133549-2022-0"}]'
       COMMIT_AUTHOR: nobody <nobody@nobody>
       READ_IMAGES: false
       MIRROR_BASE_URL: http://seppo0010.github.io/lenguajeinclusivo-documentos

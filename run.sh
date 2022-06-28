@@ -8,7 +8,7 @@ do
     exp=${!i}
     exp_filename=${!i/\//-}
 
-    ./builder "-json=public/data/${exp_filename}.json" -pdfs=/tmp/juscaba/pdfs "-expediente=${exp}" -images=${READ_IMAGES:-true} "-blacklist=${BLACKLIST_REGEX:-}"
+    ./builder "-json=public/data/${exp_filename}.json" -pdfs=/tmp/juscaba/pdfs "-expediente=${exp}" -images=${READ_IMAGES:-true} "-blacklist=${BLACKLIST_REGEX:-}" "-mirror-base-url=${MIRROR_BASE_URL:-}"
 
     pushd ts
     yarn run ts-node create-index.ts ../public/data/${exp_filename}.json ../public/data/${exp_filename}-index.json

@@ -22,24 +22,29 @@ type arguments struct {
 }
 
 func parseArguments() (*arguments, error) {
-	var pdfsPath, expId string
+	var mirrorBaseURL, pdfsPath, expId string
 	var err error
 	args := arguments{}
 	flag.StringVar(&args.blacklistRegex, "blacklist", "", "regex of urls to ignore (e.g.: \"(cedulas.*667442)|(actuaciones.*349676)\")")
 	flag.StringVar(&args.jsonPath, "json", "", "json destination path")
 	flag.StringVar(&pdfsPath, "pdfs", "", "pdfs destination path")
 	flag.StringVar(&expId, "expediente", "", "expediente identifier (e.g.: \"182908/2020-0\")")
+	flag.StringVar(&mirrorBaseURL, "mirror-base-url", "", "base url for documents")
 	flag.BoolVar(&args.parseImages, "images", true, "apply ocr")
 	flag.Parse()
 
 	log.WithFields(log.Fields{
-		"json":        args.jsonPath,
-		"pdfs":        pdfsPath,
-		"expediente":  expId,
-		"parseImages": args.parseImages,
+		"json":          args.jsonPath,
+		"pdfs":          pdfsPath,
+		"expediente":    expId,
+		"parseImages":   args.parseImages,
+		"mirrorBaseURL": mirrorBaseURL,
 	}).Print("arguments")
 
-	args.fm = &shared.FileManager{Directory: pdfsPath}
+	args.fm = &shared.FileManager{
+		Directory:     pdfsPath,
+		MirrorBaseURL: mirrorBaseURL,
+	}
 	args.exp, err = crawler.GetExpediente(expId)
 	if err != nil {
 		return nil, err

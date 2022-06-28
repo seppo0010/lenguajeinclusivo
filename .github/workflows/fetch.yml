@@ -7,11 +7,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      EXPEDIENTES: 182908/2020-0 182908/2020-1 9480/2019-0 182908/2020-4
-      EXPEDIENTES_JSON: '[{"id":"Sistema de Reconocimiento Facial","file":"182908-2020-0"},{"id":"Recusación","file":"182908-2020-1"},{"id":"AIP","file":"9480-2019-0"},{"id":"Recusación 2","file":"182908-2020-4"}]'
-      CNAME: srfp-expediente.odia.legal
-      COMMIT_AUTHOR: ODIA <odia@odia.legal>
-      READ_IMAGES: true
+      EXPEDIENTES: 133549/2020-0
+      EXPEDIENTES_JSON: '[{"id":"Federacion Argentina de Lesbianas y Otros contra GCBA","file":"133549-2020-0"}]'
+      COMMIT_AUTHOR: nobody <nobody@nobody>
+      READ_IMAGES: false
+      MIRROR_BASE_URL: http://seppo0010.github.io/lenguajeinclusivo-documentos
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v2
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout PDFs repo
         uses: actions/checkout@v2
         with:
-          repository: 'odia/srfp-documentos.github.io'
+          repository: 'seppo0010/lenguajeinclusivo-documentos'
           path: 'pdfs'
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag juscaba
@@ -31,8 +31,6 @@ jobs:
         run: docker run -v $(pwd):/tmp/juscaba juscaba ./run.sh $EXPEDIENTES
       - name: Create expedientes.json
         run: echo "${EXPEDIENTES_JSON}" > build/data/expedientes.json
-      - name: Create CNAME
-        run: echo "${CNAME}" > build/CNAME
       - name: Deploy main
         if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
@@ -50,7 +48,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
-          deploy_key: ${{ secrets.SRFP_EXPEDIENTE_KEY }}
-          external_repository: odia/srfp-documentos.github.io
+          deploy_key: ${{ secrets.LENGUAJE_INCLUSIVO_EXPEDIENTE_KEY }}
+          external_repository: seppo0010/lenguajeinclusivo-documentos
           publish_branch: gh-pages
           publish_dir: ./pdfs

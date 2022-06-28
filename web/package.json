@@ -2,7 +2,7 @@
   "name": "web2",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://srfp-expediente.odia.legal/",
+  "homepage": "https://seppo0010.github.io/lenguajeinclusivo/",
   "dependencies": {
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
@@ -19,7 +19,7 @@
     "web-vitals": "^1.0.1"
   },
   "scripts": {
-    "predeploy": "npm run build && echo -n 'srfp-expediente.odia.legal' > build/CNAME",
+    "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "start": "react-scripts start",
     "build": "react-scripts build",

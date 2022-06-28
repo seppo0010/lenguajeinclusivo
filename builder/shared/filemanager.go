@@ -30,7 +30,8 @@ func NewSavedFile(sourceURL, destinationFilename string) *SavedFile {
 }
 
 type FileManager struct {
-	Directory string
+	Directory     string
+	MirrorBaseURL string
 }
 
 func (s *FileManager) metadataPath(url string) string {
@@ -46,7 +47,7 @@ func (s *FileManager) DestinationURLforSourceURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("http://srfp-documentos.odia.legal/%s", sf.DestinationFilename), nil
+	return fmt.Sprintf("%s/%s", s.MirrorBaseURL, sf.DestinationFilename), nil
 }
 
 func (s *FileManager) IsSaved(url string) bool {

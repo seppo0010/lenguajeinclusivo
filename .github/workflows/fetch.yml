@@ -10,8 +10,6 @@ jobs:
       EXPEDIENTES: 133549/2022-0
       EXPEDIENTES_JSON: '[{"id":"Federacion Argentina de Lesbianas y Otros contra GCBA","file":"133549-2022-0"}]'
       COMMIT_AUTHOR: nobody <nobody@nobody>
-      READ_IMAGES: false
-      MIRROR_BASE_URL: http://seppo0010.github.io/lenguajeinclusivo-documentos
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v2
@@ -28,7 +26,7 @@ jobs:
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag juscaba
       - name: Run the container
-        run: docker run -v $(pwd):/tmp/juscaba juscaba ./run.sh $EXPEDIENTES
+        run: docker run -v $(pwd):/tmp/juscaba -eREAD_IMAGES=false -eMIRROR_BASE_URL=http://seppo0010.github.io/lenguajeinclusivo-documentos juscaba ./run.sh $EXPEDIENTES
       - name: Create expedientes.json
         run: echo "${EXPEDIENTES_JSON}" > build/data/expedientes.json
       - name: Deploy main

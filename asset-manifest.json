@@ -1,0 +1,23 @@
+{
+  "files": {
+    "main.css": "/lenguajeinclusivo/static/css/main.22a8f8bc.chunk.css",
+    "main.js": "/lenguajeinclusivo/static/js/main.e80317e6.chunk.js",
+    "main.js.map": "/lenguajeinclusivo/static/js/main.e80317e6.chunk.js.map",
+    "runtime-main.js": "/lenguajeinclusivo/static/js/runtime-main.01c0ffef.js",
+    "runtime-main.js.map": "/lenguajeinclusivo/static/js/runtime-main.01c0ffef.js.map",
+    "static/js/2.7f8ba905.chunk.js": "/lenguajeinclusivo/static/js/2.7f8ba905.chunk.js",
+    "static/js/2.7f8ba905.chunk.js.map": "/lenguajeinclusivo/static/js/2.7f8ba905.chunk.js.map",
+    "static/js/3.4be8b30e.chunk.js": "/lenguajeinclusivo/static/js/3.4be8b30e.chunk.js",
+    "static/js/3.4be8b30e.chunk.js.map": "/lenguajeinclusivo/static/js/3.4be8b30e.chunk.js.map",
+    "index.html": "/lenguajeinclusivo/index.html",
+    "static/css/main.22a8f8bc.chunk.css.map": "/lenguajeinclusivo/static/css/main.22a8f8bc.chunk.css.map",
+    "static/js/2.7f8ba905.chunk.js.LICENSE.txt": "/lenguajeinclusivo/static/js/2.7f8ba905.chunk.js.LICENSE.txt",
+    "static/media/system-search-symbolic.2e215c42.svg": "/lenguajeinclusivo/static/media/system-search-symbolic.2e215c42.svg"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.01c0ffef.js",
+    "static/js/2.7f8ba905.chunk.js",
+    "static/css/main.22a8f8bc.chunk.css",
+    "static/js/main.e80317e6.chunk.js"
+  ]
+}

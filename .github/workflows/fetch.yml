@@ -1,8 +1,6 @@
 name: fetch new files and re-index
 on:
-  schedule:
-    - cron: '30 5,12,17 * * *'
-  push:
+  workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
